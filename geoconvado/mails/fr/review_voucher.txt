@@ -1,0 +1,10 @@
+Bonjour {firstname},
+
+Merci pour votre avis. Voici votre bon d’achat :
+
+Code du bon: {voucher_code}
+Valeur: {voucher_value}
+valable {voucher_days} jours, dès {min_amount} d’achat. Indépendant de la note de votre avis. Saisissez-le dans votre panier ; il est lié à votre compte client et utilisable une fois.
+
+Cordialement
+{shop_name}

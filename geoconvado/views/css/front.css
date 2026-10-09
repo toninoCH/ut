@@ -1,0 +1,103 @@
+/**
+ * GEO.Convado - AI visibility (llms.txt) for PrestaShop 9
+ *
+ * NOTICE OF LICENSE
+ *
+ * This source file is subject to a commercial license from Convado AG.
+ * Use, copy, modification or distribution is only permitted with a valid
+ * license agreement.
+ *
+ * @author    Convado AG <info@convado.ch>
+ * @copyright 2026 Convado AG
+ * @license   Commercial license, see LICENSE.md
+ */
+/* GEO.Convado – erbt Schrift und Farben vom Theme, nur Abstände und Rahmen. */
+.geo-summary{margin:2rem 0;padding:1.25rem 1.5rem;border:1px solid rgba(0,0,0,.1);border-radius:12px;background:rgba(0,0,0,.02)}
+.geo-summary__title{font-size:1.15rem;margin:0 0 .5rem}
+.geo-summary__lead{margin:0 0 1rem;line-height:1.55}
+.geo-summary__grid{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
+.geo-summary__col h4{font-size:.95rem;margin:0 0 .4rem}
+.geo-summary__col ul{margin:0;padding:0;list-style:none}
+.geo-summary__col li{position:relative;padding-left:1.4rem;margin:.3rem 0;line-height:1.45}
+.geo-summary__col--pro li:before{content:"+";position:absolute;left:0;font-weight:700;color:#1a7f37}
+.geo-summary__col--con li:before{content:"–";position:absolute;left:0;font-weight:700;color:#b42318}
+.geo-summary__fit{display:grid;grid-template-columns:auto 1fr;gap:.25rem 1rem;margin:1rem 0 0}
+.geo-summary__fit dt{font-weight:600}.geo-summary__fit dd{margin:0}
+.geo-summary__note{margin:.9rem 0 0;font-size:.8rem;opacity:.65}
+@media (max-width:640px){.geo-summary__grid{grid-template-columns:1fr}.geo-summary{padding:1rem}}
+.geo-gbadge{display:inline-flex;align-items:center;gap:.4rem;margin:.5rem 0;font-size:.9rem}
+.geo-gbadge__g{display:inline-grid;place-items:center;width:1.4rem;height:1.4rem;border-radius:50%;background:#fff;border:1px solid rgba(0,0,0,.15);font-weight:700;color:#4285f4}
+.geo-gbadge__stars{color:#fbbc04;letter-spacing:1px}
+.geo-gbadge__count{opacity:.7}
+.geo-greviews{max-width:1200px;margin:2rem auto;padding:1.25rem 1rem;border-top:1px solid rgba(0,0,0,.08)}
+.geo-greviews__head{display:flex;flex-wrap:wrap;align-items:center;gap:.5rem;margin-bottom:1rem}
+.geo-greviews__score{font-size:1.5rem}
+.geo-greviews__list{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:1rem}
+.geo-greviews__item{margin:0;padding:1rem;border:1px solid rgba(0,0,0,.08);border-radius:10px;font-size:.92rem}
+.geo-greviews__item p{margin:0 0 .5rem}.geo-greviews__item footer{opacity:.7;font-size:.82rem}
+.geo-faq__item{border-top:1px solid rgba(0,0,0,.08);padding:.6rem 0}
+.geo-faq__item summary{cursor:pointer;font-weight:600;list-style:none}
+.geo-faq__item summary::-webkit-details-marker{display:none}
+.geo-faq__item summary::after{content:"+";float:right;opacity:.5}
+.geo-faq__item[open] summary::after{content:"–"}
+.geo-faq__item p{margin:.5rem 0 0;line-height:1.55}
+/* 1.5.0 Social Proof, KI-Einschätzung auf Knopfdruck, Passt dazu */
+.geo-proof{margin:.75rem 0;padding:.75rem 1rem;border:1px solid rgba(0,0,0,.1);border-radius:12px;background:rgba(0,0,0,.02)}
+.geo-proof__head{display:flex;flex-wrap:wrap;align-items:center;gap:.45rem}
+.geo-proof__g{display:inline-grid;place-items:center;width:1.5rem;height:1.5rem;border-radius:50%;background:#fff;border:1px solid rgba(0,0,0,.15);font-weight:700;color:#4285f4}
+.geo-proof__score{font-size:1.15rem}.geo-proof__stars{color:#fbbc04;letter-spacing:1px}
+.geo-proof__count{font-size:.85rem;opacity:.75;color:inherit;text-decoration:underline}
+.geo-proof__quote{margin:.5rem 0 0;font-size:.88rem;line-height:1.45;font-style:italic}
+.geo-proof__quote span{font-style:normal;opacity:.65}
+.geo-summary--toggle{padding:0}
+.geo-summary--toggle>*:not(summary){margin-left:1.5rem;margin-right:1.5rem}
+.geo-summary--toggle>.geo-summary__note{margin-bottom:1.25rem}
+.geo-summary__toggle{cursor:pointer;list-style:none;padding:1rem 1.5rem;font-weight:600;display:flex;align-items:center;gap:.6rem}
+.geo-summary__toggle::-webkit-details-marker{display:none}
+.geo-summary__toggle::after{content:"+";margin-left:auto;opacity:.5}
+.geo-summary--toggle[open] .geo-summary__toggle::after{content:"–"}
+.geo-summary__ai{display:inline-grid;place-items:center;min-width:1.8rem;height:1.4rem;border-radius:6px;border:1px solid currentColor;font-size:.7rem;letter-spacing:.5px}
+.geo-ups{margin:2rem 0}
+.geo-ups__grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:1rem}
+.geo-ups__card{display:flex;flex-direction:column;gap:.35rem;padding:.75rem;border:1px solid rgba(0,0,0,.08);border-radius:12px;color:inherit;text-decoration:none;transition:border-color .15s}
+.geo-ups__card:hover{border-color:rgba(0,0,0,.3)}
+.geo-ups__card img{width:100%;height:auto;aspect-ratio:1;object-fit:contain;border-radius:8px}
+.geo-ups__name{font-size:.9rem;line-height:1.3}.geo-ups__price{font-size:.95rem}
+.geo-proof__label{font-size:.75rem;text-transform:uppercase;letter-spacing:.06em;opacity:.6}
+.geo-buy{max-width:560px;margin:2rem auto;padding:1.5rem;border:1px solid rgba(0,0,0,.1);border-radius:12px}
+.geo-buy img{max-width:160px;height:auto}
+/* 1.7.0 Zwei-Spalten: links KI-Zusammenfassung (deklariert), rechts echte Käuferbewertungen */
+.geo-duo{display:grid;grid-template-columns:1fr 1fr;gap:1.25rem;margin:2rem 0;align-items:start}
+.geo-duo--single{grid-template-columns:1fr}
+.geo-duo>.geo-summary{margin:0}
+.geo-summary__declared{margin:.1rem 0 .9rem;font-size:.8rem;opacity:.7}
+.geo-rv__avg{margin:0 0 1rem;line-height:1.4}.geo-rv__stars{color:#fbbc04;letter-spacing:1px}
+.geo-rv__none,.geo-rv__hint{opacity:.75}
+.geo-rv__flash{padding:.6rem .8rem;border:1px solid rgba(26,127,55,.4);border-radius:8px;background:rgba(26,127,55,.08)}
+.geo-rv__item{padding:.9rem 0;border-top:1px solid rgba(0,0,0,.08)}
+.geo-rv__item header{display:flex;gap:.5rem;align-items:baseline;flex-wrap:wrap}
+.geo-rv__meta{margin:.25rem 0;font-size:.82rem;opacity:.8}
+.geo-rv__body{margin:.4rem 0;line-height:1.5;white-space:pre-line;overflow-wrap:anywhere}
+.geo-badge{display:inline-block;margin-left:.35rem;padding:.05rem .45rem;border-radius:999px;font-size:.72rem;border:1px solid currentColor}
+.geo-badge--ok{color:#1a7f37}.geo-badge--inc{color:#8a5a00}
+.geo-rv__media{display:flex;flex-wrap:wrap;gap:.5rem;margin:.5rem 0}
+.geo-rv__media img{width:96px;height:96px;object-fit:cover;border-radius:8px;border:1px solid rgba(0,0,0,.1)}
+.geo-rv__media video{max-width:100%;height:auto;border-radius:8px;background:#000}
+.geo-rv__actions{display:flex;gap:1rem;font-size:.82rem}.geo-rv__actions form{margin:0}
+.geo-link{background:none;border:0;padding:0;color:inherit;text-decoration:underline;cursor:pointer;opacity:.75;font:inherit}
+.geo-rv__cta{margin:1rem 0 .5rem}
+.geo-rv__blog{margin:.3rem 0;font-size:.88rem}
+@media (max-width:860px){.geo-duo{grid-template-columns:1fr}}
+/* Bewertungsformular */
+.geo-rvform{max-width:680px;margin:0 auto}
+.geo-rvform__offer{display:grid;gap:.25rem;margin:0 0 1.25rem;padding:.9rem 1rem;border:1px solid rgba(138,90,0,.4);border-radius:10px;background:rgba(251,188,4,.08)}
+.geo-rvform__field{display:block;margin:0 0 1rem}.geo-rvform__field .form-control{margin-top:.3rem}
+.geo-rvform__check{display:flex;gap:.6rem;align-items:flex-start;margin:0 0 1rem;font-size:.9rem}
+.geo-rvform__note,.geo-rvform__count{font-size:.82rem;opacity:.75}
+.geo-rvform__hp{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden}
+.geo-rvform__rating{border:0;padding:0;margin:0 0 1rem}
+.geo-stars-input{display:inline-flex;flex-direction:row-reverse;gap:.15rem}
+.geo-stars-input input{position:absolute;opacity:0;width:1px;height:1px}
+.geo-stars-input label{font-size:2rem;line-height:1;color:rgba(0,0,0,.2);cursor:pointer}
+.geo-stars-input input:checked~label,.geo-stars-input label:hover,.geo-stars-input label:hover~label{color:#fbbc04}
+.geo-stars-input input:focus-visible+label{outline:2px solid currentColor;outline-offset:2px}

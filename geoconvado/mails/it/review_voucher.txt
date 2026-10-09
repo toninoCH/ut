@@ -1,0 +1,10 @@
+Buongiorno {firstname},
+
+Grazie per la sua recensione. Ecco il suo buono:
+
+Codice buono: {voucher_code}
+Valore: {voucher_value}
+valido {voucher_days} giorni, da {min_amount} di ordine. Indipendente dal voto della recensione. Lo inserisca nel carrello; è legato al suo account cliente e utilizzabile una volta.
+
+Cordiali saluti
+{shop_name}

@@ -1,0 +1,104 @@
+{#
+ * GEO.Convado - AI visibility (llms.txt) for PrestaShop 9
+ *
+ * NOTICE OF LICENSE
+ *
+ * This source file is subject to a commercial license from Convado AG.
+ * Use, copy, modification or distribution is only permitted with a valid
+ * license agreement.
+ *
+ * @author    Convado AG <info@convado.ch>
+ * @copyright 2026 Convado AG
+ * @license   Commercial license, see LICENSE.md
+ #}
+{% extends '@PrestaShop/Admin/layout.html.twig' %}
+
+{% block content %}
+<link rel="stylesheet" href="{{ css_url }}">
+<div class="gc">
+  <header class="gc-head">
+    <div>
+      <h1 class="gc-title">Käuferbewertungen <span class="gc-ver">GEO.Convado v{{ version }}</span></h1>
+      <p class="gc-sub">Geprüft wird nur auf Spam, Missbrauch und persönliche Daten. Negative Bewertungen werden nicht abgelehnt, nur weil sie negativ sind. <a href="{{ back_url }}">Einstellungen</a></p>
+    </div>
+  </header>
+
+  {% set messages = {
+    approved: 'Freigegeben.', approved_voucher: 'Freigegeben, Gutschein per E-Mail gesendet.', voucher_ok: 'Gutschein ausgestellt und gesendet.',
+    voucher_mail: 'Gutschein angelegt, aber die E-Mail konnte nicht gesendet werden. Bitte Mail-Einstellungen prüfen.',
+    rejected: 'Abgelehnt.', deleted: 'Gelöscht.', blog: 'Blog-Link gespeichert.', token: 'Sitzung abgelaufen, bitte erneut versuchen.'
+  } %}
+  {% if flash %}
+    {% if flash starts with 'voucher_fail:' %}<div class="gc-alert err">Gutschein nicht ausgestellt: {{ flash|slice(13) }}</div>
+    {% elseif messages[flash] is defined %}<div class="gc-alert {{ flash == 'voucher_mail' or flash == 'token' ? 'err' : 'ok' }}">{{ messages[flash] }}</div>{% endif %}
+  {% endif %}
+
+  <nav class="gc-tabs" role="tablist">
+    {% for k, l in {pending: 'Offen', approved: 'Freigegeben', rejected: 'Abgelehnt', all: 'Alle'} %}
+      <a class="gc-tab {{ status == k ? 'is-active' }}" href="{{ path('geoconvado_reviews', {status: k}) }}">{{ l }}{% if counts[k] is defined %} ({{ counts[k] }}){% endif %}</a>
+    {% endfor %}
+    {% if counts.reported %}<span class="gc-chip is-open">{{ counts.reported }} gemeldet</span>{% endif %}
+  </nav>
+
+  {% if rows is empty %}
+    <section class="gc-card"><p class="gc-muted">Keine Bewertungen in dieser Ansicht.</p></section>
+  {% endif %}
+
+  {% for r in rows %}
+  <section class="gc-card" id="rv-{{ r.id_review }}">
+    <div class="gc-row gc-row--start">
+      <strong>{{ '★★★★★'|slice(0, r.rating) }}{{ '☆☆☆☆☆'|slice(0, 5 - r.rating) }}</strong>
+      <span>{{ r.product_name ?: ('Artikel #' ~ r.id_product) }}</span>
+      <span class="gc-muted">{{ r.display_name }} · Kunde #{{ r.id_customer }} · Bestellung #{{ r.id_order }} · {{ r.created_at }}</span>
+      <span class="gc-chip {{ r.status == 'approved' ? 'is-ok' : 'is-open' }}">{{ {pending: 'offen', approved: 'freigegeben', rejected: 'abgelehnt'}[r.status] }}{% if r.reject_reason %}: {{ r.reject_reason }}{% endif %}</span>
+      {% if r.incentivised %}<span class="gc-chip is-open">Gutschein-Anspruch{% if r.voucher_id > 0 %} · ausgestellt{% endif %}</span>{% endif %}
+      {% if r.consent_quote %}<span class="gc-chip is-ok">darf zitiert werden</span>{% endif %}
+      {% if r.reports > 0 %}<span class="gc-chip is-open">{{ r.reports }}× gemeldet</span>{% endif %}
+    </div>
+    {% if r.title %}<h3 class="gc-h3">{{ r.title }}</h3>{% endif %}
+    <p style="white-space:pre-wrap">{{ r.body }}</p>
+    {% if r.media_view %}
+    <div class="gc-row gc-row--start">
+      {% for m in r.media_view %}
+        {% if m.kind == 'image' %}
+          <a href="{{ m.url }}" target="_blank" rel="noopener"><img src="{{ m.thumb }}" alt="" width="96" height="96" style="object-fit:cover;border-radius:8px"></a>
+        {% elseif m.state == 'ready' %}
+          <video controls preload="none" width="240" poster="{{ m.thumb }}"><source src="{{ m.url }}" type="video/mp4"></video>
+        {% else %}
+          <span class="gc-muted">Video: {{ m.state == 'failed' ? 'Umwandlung fehlgeschlagen' : 'wird umgewandelt (Cron)' }}</span>
+        {% endif %}
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    <form method="post" action="{{ path('geoconvado_review_action') }}" class="gc-row gc-row--start">
+      <input type="hidden" name="_token" value="{{ csrf_token('geoconvado') }}">
+      <input type="hidden" name="id_review" value="{{ r.id_review }}">
+      <input type="hidden" name="status" value="{{ status }}">
+      <input type="hidden" name="page" value="{{ page }}">
+      {% if r.status != 'approved' %}<button class="gc-btn gc-btn--primary" name="action" value="approve">Freigeben{% if r.incentivised and r.voucher_id == 0 %} + Gutschein{% endif %}</button>{% endif %}
+      {% if r.status == 'approved' and r.incentivised and r.voucher_id == 0 %}<button class="gc-btn" name="action" value="voucher">Gutschein ausstellen</button>{% endif %}
+      {% if r.status != 'rejected' %}
+        <select name="reason" class="form-control" style="width:auto">{% for k, l in reasons %}<option value="{{ k }}">{{ l }}</option>{% endfor %}</select>
+        <button class="gc-btn" name="action" value="reject">Ablehnen</button>
+      {% endif %}
+      <button class="gc-btn" name="action" value="delete" onclick="return confirm('Bewertung und Medien endgültig löschen?');">Löschen</button>
+    </form>
+    <form method="post" action="{{ path('geoconvado_review_action') }}" class="gc-row gc-row--start">
+      <input type="hidden" name="_token" value="{{ csrf_token('geoconvado') }}">
+      <input type="hidden" name="id_review" value="{{ r.id_review }}">
+      <input type="hidden" name="status" value="{{ status }}">
+      <input type="hidden" name="page" value="{{ page }}">
+      <input class="form-control" style="max-width:420px" name="blog_url" value="{{ r.blog_url }}" placeholder="Blog-Beitrag zu dieser Bewertung (https://…)">
+      <button class="gc-btn gc-btn--sm" name="action" value="blog">Blog-Link speichern</button>
+    </form>
+  </section>
+  {% endfor %}
+
+  {% if pages > 1 %}
+  <div class="gc-row gc-row--start">
+    {% for i in 1..pages %}<a class="gc-btn gc-btn--sm {{ i == page ? 'gc-btn--primary' }}" href="{{ path('geoconvado_reviews', {status: status, page: i}) }}">{{ i }}</a>{% endfor %}
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

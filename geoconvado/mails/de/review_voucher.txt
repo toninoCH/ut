@@ -1,0 +1,10 @@
+Hallo {firstname},
+
+Vielen Dank für Ihre Bewertung. Hier ist Ihr Gutschein:
+
+Gutscheincode: {voucher_code}
+Wert: {voucher_value}
+gültig {voucher_days} Tage, ab {min_amount} Bestellwert. Unabhängig von der Note Ihrer Bewertung. Den Gutschein können Sie im Warenkorb eingeben; er ist an Ihr Kundenkonto gebunden und einmal verwendbar.
+
+Freundliche Grüsse
+{shop_name}

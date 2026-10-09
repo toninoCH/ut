@@ -1,0 +1,10 @@
+Hello {firstname},
+
+Thank you for your review. Here is your voucher:
+
+Voucher code: {voucher_code}
+Value: {voucher_value}
+valid for {voucher_days} days, from {min_amount} order value. Independent of the rating of your review. Enter it in your cart; it is tied to your customer account and can be used once.
+
+Kind regards
+{shop_name}

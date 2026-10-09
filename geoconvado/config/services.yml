@@ -1,0 +1,15 @@
+services:
+  _defaults:
+    public: true
+
+  GeoConvado\Controller\Admin\ConfigController:
+    class: GeoConvado\Controller\Admin\ConfigController
+    autowire: true
+    autoconfigure: true
+    tags: ['controller.service_arguments']
+
+  GeoConvado\Controller\Admin\ReviewController:
+    class: GeoConvado\Controller\Admin\ReviewController
+    autowire: true
+    autoconfigure: true
+    tags: ['controller.service_arguments']

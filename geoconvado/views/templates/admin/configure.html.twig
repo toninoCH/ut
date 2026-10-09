@@ -1,0 +1,424 @@
+{#
+ * GEO.Convado - AI visibility (llms.txt) for PrestaShop 9
+ *
+ * NOTICE OF LICENSE
+ *
+ * This source file is subject to a commercial license from Convado AG.
+ * Use, copy, modification or distribution is only permitted with a valid
+ * license agreement.
+ *
+ * @author    Convado AG <info@convado.ch>
+ * @copyright 2026 Convado AG
+ * @license   Commercial license, see LICENSE.md
+ #}
+{% extends '@PrestaShop/Admin/layout.html.twig' %}
+
+{% macro sw(name, on, label, help) %}
+  <label class="gc-switch"><input type="checkbox" name="{{ name }}" value="1" {{ on ? 'checked' }}><span class="gc-switch__ui"></span>
+    <span><b>{{ label }}</b>{% if help %}<small class="gc-muted">{{ help }}</small>{% endif %}</span></label>
+{% endmacro %}
+
+{% block content %}
+{% import _self as ui %}
+<link rel="stylesheet" href="{{ css_url }}">
+<div class="gc">
+
+  <header class="gc-head">
+    <div>
+      <h1 class="gc-title">GEO.Convado <span class="gc-ver">v{{ version }}</span></h1>
+      <p class="gc-sub">Ihr Katalog für ChatGPT, Claude, Perplexity und Gemini · <a href="{{ llms_url }}" target="_blank" rel="noopener">{{ llms_url }}</a></p>
+    </div>
+    <div class="gc-setup">
+      <div class="gc-setup__label">Einrichtung {{ steps_done }} von {{ steps|length }}</div>
+      <div class="gc-setup__bar"><span style="width: {{ (steps_done / steps|length * 100)|round }}%"></span></div>
+      <div class="gc-setup__steps">
+        {% for s in steps %}<span class="gc-chip {{ s.ok ? 'is-ok' : 'is-open' }}">{{ s.ok ? '✓' : '○' }} {{ s.label }}</span>{% endfor %}
+      </div>
+      {% if not steps[3].ok %}<div class="gc-hint">{{ last_cron ? 'Cron lief zuletzt ' ~ last_cron ~ ' – länger als eine Stunde her.' : 'Cron noch nie gelaufen. Siehe Reiter «Cron».' }}</div>{% endif %}
+    </div>
+  </header>
+
+  <nav class="gc-tabs" role="tablist">
+    {% for k, l in {dashboard: 'Dashboard', analytics: 'Analyse', general: 'Allgemein', products: 'Produkte', content: 'Inhalte', reviews: 'Bewertungen', ai: 'KI-Zugriff', cron: 'Cron'} %}
+      <button type="button" class="gc-tab {{ tab == k ? 'is-active' }}" data-tab="{{ k }}" role="tab">{{ l }}</button>
+    {% endfor %}
+  </nav>
+
+  <form method="post" id="gc-form">
+  <input type="hidden" name="_token" value="{{ csrf_token('geoconvado') }}">
+  <input type="hidden" name="tab" id="gc-tab-input" value="{{ tab }}">
+  <input type="hidden" name="rv_present" value="1">
+
+  {# ---------------------------------------------------------- Dashboard #}
+  <div class="gc-pane" data-pane="dashboard">
+    <div class="gc-row gc-row--start">
+      <button type="button" class="gc-btn gc-btn--primary" id="geo-run">Jetzt neu erzeugen</button>
+      <button type="button" class="gc-btn" id="geo-check">Erreichbarkeit testen</button>
+      <span id="geo-run-msg" class="gc-muted"></span>
+    </div>
+    <div id="geo-check-out"></div>
+
+    <section class="gc-kpis">
+      {% for s in stats %}
+        <div class="gc-card gc-kpi"><div class="gc-kpi__label">{{ s.label }}</div><div class="gc-kpi__value">{{ s.in }} <span class="gc-muted">/ {{ s.all }}</span></div>
+          <div class="gc-kpi__meta">in den llms-Dateien</div></div>
+      {% endfor %}
+    </section>
+
+    <section class="gc-card">
+      <h2 class="gc-h2">Erzeugte Dateien</h2>
+      {% if files %}
+      <table class="gc-table">
+        <thead><tr><th>Datei</th><th>Grösse</th><th>Aktualisiert</th><th></th></tr></thead>
+        <tbody>
+        {% for f in files %}
+          <tr><td><code>{{ f.name }}</code></td><td>{{ (f.size / 1024)|round(1) }} KB</td><td>{{ f.mtime }}</td>
+            <td class="gc-right"><a class="gc-btn gc-btn--sm" href="{{ f.url }}" target="_blank" rel="noopener">Vorschau</a></td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+        <p class="gc-muted">Noch keine Dateien. «Jetzt neu erzeugen» klicken oder den Cron einrichten.</p>
+      {% endif %}
+    </section>
+
+    <section class="gc-card">
+      <h2 class="gc-h2">Status pro Sprache</h2>
+      <table class="gc-table">
+        <thead><tr><th>Shop</th><th>Sprache</th><th>Status</th><th>Produkte</th><th>Grösse</th><th>Zuletzt erzeugt</th></tr></thead>
+        <tbody>
+        {% for s in states %}
+          <tr><td>{{ s.shop }}</td><td>{{ s.iso|upper }}</td>
+            <td>{% if s.status == 'done' %}<span class="gc-pill ok">aktuell</span>{% elseif s.status == 'running' %}<span class="gc-pill run">läuft</span>{% elseif s.status == 'error' %}<span class="gc-pill err" title="{{ s.last_error }}">Fehler</span>{% else %}<span class="gc-pill">noch nie</span>{% endif %}</td>
+            <td>{{ s.product_count }}</td><td>{{ (s.bytes / 1024)|round }} KB</td><td>{{ s.finished_at ?: '–' }}</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      {% if dirty %}<p class="gc-muted">Änderungen erkannt – der nächste Cron-Lauf aktualisiert die Dateien.</p>{% endif %}
+    </section>
+  </div>
+
+  {# ---------------------------------------------------------- Analyse #}
+  <div class="gc-pane" data-pane="analytics">
+    <section class="gc-kpis">
+      <div class="gc-card gc-kpi"><div class="gc-kpi__label">KI-Besuche</div><div class="gc-kpi__value">{{ dash.kpi.all.value }}</div>
+        <div class="gc-kpi__meta">30 Tage{% if dash.kpi.all.delta is not null %} · <b class="{{ dash.kpi.all.delta >= 0 ? 'up' : 'down' }}">{{ dash.kpi.all.delta >= 0 ? '+' }}{{ dash.kpi.all.delta }} %</b>{% endif %}</div></div>
+      <div class="gc-card gc-kpi"><div class="gc-kpi__label">llms-Abrufe</div><div class="gc-kpi__value">{{ track_llms ? dash.kpi.llms.value : '–' }}</div>
+        <div class="gc-kpi__meta">{{ track_llms ? '30 Tage' : 'Zählung aus (unten einschalten)' }}</div></div>
+      <div class="gc-card gc-kpi"><div class="gc-kpi__label">Direktkäufe durch Agenten</div><div class="gc-kpi__value">{{ dash.kpi.buy.value }}</div>
+        <div class="gc-kpi__meta">in den Warenkorb gelegt, 30 Tage</div></div>
+      <div class="gc-card gc-kpi"><div class="gc-kpi__label">Aktivste KI</div><div class="gc-kpi__value gc-kpi__value--txt">{{ dash.top_bot ?: '–' }}</div>
+        <div class="gc-kpi__meta">nach Aufrufen</div></div>
+    </section>
+
+    {% if dash.has_data %}
+    <section class="gc-card">
+      <h2 class="gc-h2">Verlauf 30 Tage</h2>
+      <svg class="gc-chart" viewBox="0 0 600 110" preserveAspectRatio="none" role="img" aria-label="KI-Besuche pro Tag">
+        {% for s in dash.series %}<rect x="{{ s.x + 3 }}" y="{{ 104 - s.h }}" width="14" height="{{ s.h > 0 ? s.h : 1 }}" rx="3"><title>{{ s.day }}: {{ s.hits }}</title></rect>{% endfor %}
+      </svg>
+      <div class="gc-axis"><span>{{ (dash.series|first).day }}</span><span>Spitze: {{ dash.peak }}/Tag</span><span>heute</span></div>
+    </section>
+    <section class="gc-grid2">
+      <div class="gc-card">
+        <h2 class="gc-h2">Nach KI-Anbieter</h2>
+        {% for p in dash.providers %}
+          <div class="gc-bar"><span class="gc-bar__name">{{ p.bot }}</span><span class="gc-bar__track"><span style="width: {{ p.pct }}%"></span></span><span class="gc-bar__val">{{ p.hits }}</span></div>
+        {% endfor %}
+      </div>
+      <div class="gc-card">
+        <h2 class="gc-h2">Meistgelesen</h2>
+        <ul class="gc-list">
+          {% for t in dash.top %}<li><span class="gc-tag">{{ t.kind == 'llms' ? 'llms' : 'Seite' }}</span><span class="gc-list__path">{{ t.path }}</span><b>{{ t.hits }}</b></li>{% endfor %}
+        </ul>
+      </div>
+    </section>
+    {% else %}
+    <section class="gc-card gc-empty">
+      <h2 class="gc-h2">Noch keine KI-Besuche</h2>
+      <p>Sobald ChatGPT, Claude, Perplexity oder Gemini Ihren Shop lesen, erscheinen hier Verlauf, Anbieter und meistgelesene Produkte. Das dauert nach der Einrichtung meist einige Tage. Bleibt es leer, im Dashboard «Erreichbarkeit testen» – oft blockiert eine Firewall wie Cloudflare die KI-Bots.</p>
+    </section>
+    {% endif %}
+
+    <section class="gc-card">
+      <h2 class="gc-h2">Zählung der llms-Abrufe</h2>
+      {{ ui.sw('track_llms', track_llms, 'Abrufe der llms-Dateien zählen', 'Die Dateien laufen dann über das Modul (minimal mehr Serverlast). Nach dem Einschalten speichern und «Jetzt neu erzeugen» klicken.') }}
+      <details class="gc-more"><summary>Server leitet die Dateien nicht weiter? Regeln zum Kopieren</summary>
+        <p class="gc-muted">Apache (.htaccess, vor den PrestaShop-Regeln):</p>
+        <pre class="gc-code" id="gc-ht">{{ htaccess }}</pre><button type="button" class="gc-btn gc-btn--sm" data-copy="gc-ht">Kopieren</button>
+        <p class="gc-muted">Nginx:</p>
+        <pre class="gc-code" id="gc-ngx">{{ nginx }}</pre><button type="button" class="gc-btn gc-btn--sm" data-copy="gc-ngx">Kopieren</button>
+        <p class="gc-muted">Mit Cloudflare: Cache-Regel «Bypass» für <code>/llms*</code>, sonst sieht das Modul gecachte Abrufe nicht.</p>
+      </details>
+    </section>
+  </div>
+
+  {# ---------------------------------------------------------- Allgemein #}
+  <div class="gc-pane" data-pane="general">
+    <section class="gc-card">
+      <h2 class="gc-h2"><span class="gc-num {{ steps[0].ok ? 'is-ok' }}">1</span> Verbindung zum Convado AIO</h2>
+      <input type="text" class="form-control" name="aio_key" value="{{ aio_key }}" placeholder="geo_…" autocomplete="off">
+      <small class="gc-muted">Im Convado AIO unter GEO → llms.txt erzeugen. Bringt Bewertungen, FAQs, KI-Einschätzungen und Übersetzungen.</small>
+      {% if test %}{% if test.ok %}<div class="gc-alert ok">Verbunden mit «{{ test.shop }}»: {{ test.products }} Produkte mit Daten, {{ test.faqs }} FAQs.</div>
+      {% else %}<div class="gc-alert err">Verbindung fehlgeschlagen: {{ test.error }}</div>{% endif %}{% endif %}
+      <div class="gc-row gc-row--start"><button type="submit" name="test" value="1" class="gc-btn">Speichern &amp; Verbindung testen</button></div>
+    </section>
+
+    <section class="gc-card">
+      <h2 class="gc-h2"><span class="gc-num {{ steps[1].ok ? 'is-ok' }}">2</span> Was macht Ihren Shop besonders?</h2>
+      <p class="gc-muted">KI-Assistenten lesen diesen Text zuerst. Leere Sprachen übernehmen automatisch den Text der Standardsprache ({{ default_iso|upper }}).</p>
+      {% for l in languages %}
+        <div class="gc-lang"><span>{{ l.iso_code|upper }}</span><textarea class="form-control" rows="3" name="brand_{{ l.id_lang }}" data-iso="{{ l.iso_code }}" data-group="brand" placeholder="z.B. Schweizer Fachhändler für mechanische Tastaturen mit Showroom in Zürich.">{{ brand[l.id_lang] }}</textarea></div>
+      {% endfor %}
+      {% if languages|length > 1 %}<button type="button" class="gc-btn gc-btn--sm" data-translate="brand">Aus {{ default_iso|upper }} in alle Sprachen übersetzen</button>{% endif %}
+
+      <h3 class="gc-h3">Eigene Abschnitte <span class="gc-muted">(Markdown, z.B. Garantie, Showroom, Beratung)</span></h3>
+      {% for l in languages %}
+        <div class="gc-lang"><span>{{ l.iso_code|upper }}</span><textarea class="form-control" rows="3" name="custom_{{ l.id_lang }}" data-iso="{{ l.iso_code }}" data-group="custom" placeholder="## Showroom&#10;Besuch nach Vereinbarung in Zürich.">{{ custom[l.id_lang] }}</textarea></div>
+      {% endfor %}
+      {% if languages|length > 1 %}<button type="button" class="gc-btn gc-btn--sm" data-translate="custom">Aus {{ default_iso|upper }} in alle Sprachen übersetzen</button>{% endif %}
+      <span class="gc-muted" id="geo-tr-msg"></span>
+    </section>
+
+    <section class="gc-card">
+      <h2 class="gc-h2"><span class="gc-num {{ steps[2].ok ? 'is-ok' }}">3</span> Einkaufen</h2>
+      {% if facts_review %}<div class="gc-alert err">Diese Angaben stammen aus den Vorgaben einer älteren Version und sind in den llms-Dateien ausgeblendet. Bitte prüfen, anpassen und speichern; erst dann werden sie veröffentlicht.</div>{% endif %}
+      <div class="gc-cols">
+        <label class="gc-label">Zahlarten<input class="form-control" name="payments" value="{{ payments }}"></label>
+        <label class="gc-label">Lieferzone<input class="form-control" name="ship_zone" value="{{ ship_zone }}"></label>
+        <label class="gc-label gc-span">Versandkosten &amp; Lieferzeit<input class="form-control" name="ship_cost" value="{{ ship_cost }}"></label>
+        <label class="gc-label">MwSt. in %<input class="form-control" name="vat" value="{{ vat }}"></label>
+      </div>
+      <h3 class="gc-h3">Lagertext <span class="gc-muted">(optional, nur wenn er für alle Artikel stimmt, z.B. «Lieferung am nächsten Werktag»)</span></h3>
+      {% for l in languages %}
+        <div class="gc-lang"><span>{{ l.iso_code|upper }}</span><input class="form-control" name="stock_text_{{ l.id_lang }}" value="{{ stock_text[l.id_lang] }}" maxlength="120"></div>
+      {% endfor %}
+    </section>
+
+    <section class="gc-card">
+      <h2 class="gc-h2">Wissen &amp; Shop-Anzeige</h2>
+      {{ ui.sw('reviews', reviews, 'Bewertungen einbeziehen', 'Shop- und Produktbewertungen aus dem AIO in die llms-Dateien.') }}
+      {{ ui.sw('faqs', faqs, 'FAQs einbeziehen', 'Allgemeine und produktgenaue Kundenfragen (auch aus dem Postfach).') }}
+      {{ ui.sw('w_summary', w_summary, 'Neutrale KI-Einschätzung auf der Produktseite', 'Kurzfazit, Vor- und Nachteile, für Kunden sichtbar.') }}
+      {{ ui.sw('upsell', upsell, 'Passt dazu (Upsell)', 'Zubehör aus PrestaShop, sonst Bestseller der Kategorie. Auch in llms.txt für KI-Agenten.') }}
+      {{ ui.sw('w_reviews', w_reviews, 'Google-Bewertungen im Shop anzeigen', 'Badge beim Preis und Leiste über dem Footer.') }}
+    </section>
+  </div>
+
+  {# ---------------------------------------------------------- Produkte #}
+  <div class="gc-pane" data-pane="products">
+    <section class="gc-card">
+      <h2 class="gc-h2">Welche Produkte?</h2>
+      {{ ui.sw('excl_oos', sw.excl_oos, 'Ausverkaufte Produkte weglassen', 'Nur wenn sie auch nicht nachbestellbar sind. Empfehlung: aus – KI soll auch «bald wieder da» kennen.') }}
+      <label class="gc-label gc-narrow">Maximale Anzahl Produkte <input type="number" min="0" class="form-control" name="max_products" value="{{ max_products }}"><small class="gc-muted">0 = alle. Inaktive und versteckte Produkte sind immer ausgeschlossen.</small></label>
+      <p class="gc-muted">Grosse Kataloge werden automatisch pro Hauptkategorie in eigene Dateien aufgeteilt.</p>
+    </section>
+    <section class="gc-card">
+      <h2 class="gc-h2">Welche Angaben pro Produkt?</h2>
+      {{ ui.sw('f_price', sw.f_price, 'Preise', 'Inkl. MwSt. und Aktionspreis.') }}
+      {{ ui.sw('f_stock', sw.f_stock, 'Lagerstatus', 'Mit Schweizer-Lager-Hinweis und Knappheit.') }}
+      {{ ui.sw('f_image', sw.f_image, 'Produktbild', 'Link zum Hauptbild.') }}
+      {{ ui.sw('f_meta', sw.f_meta, 'Kurzbeschreibung', 'Meta-Beschreibung oder Kurztext.') }}
+      {{ ui.sw('f_features', sw.f_features, 'Merkmale', 'Technische Werte wie Layout, Switches, Anschluss.') }}
+      {{ ui.sw('f_variants', sw.f_variants, 'Varianten', 'Farben, Grössen, Layouts.') }}
+      <p class="gc-muted">Immer dabei: Name, Link, Artikelnummer, Marke, Direktkauf-Link, Bewertungen, Kundenfragen und neutrale Einschätzung.</p>
+    </section>
+  </div>
+
+  {# ---------------------------------------------------------- Inhalte #}
+  <div class="gc-pane" data-pane="content">
+    <section class="gc-card">
+      <h2 class="gc-h2">Service-Seiten</h2>
+      {{ ui.sw('inc_cms', sw.inc_cms, 'CMS-Seiten aufnehmen', 'Lieferung, AGB, Über uns – mit Kurzauszug. Stärkt das Vertrauen der KI.') }}
+      <div class="gc-checks">{% for c in cms_pages %}<label class="gc-check"><input type="checkbox" name="cms_ids[]" value="{{ c.id_cms }}" {{ c.id_cms in sel_cms ? 'checked' }}> {{ c.meta_title }}</label>{% else %}<span class="gc-muted">Keine aktiven CMS-Seiten.</span>{% endfor %}</div>
+      <small class="gc-muted">Nichts angehakt = alle aktiven Seiten.</small>
+    </section>
+    <section class="gc-card">
+      <h2 class="gc-h2">Marken</h2>
+      {{ ui.sw('inc_brands', sw.inc_brands, 'Markenseiten aufnehmen', '') }}
+      <div class="gc-checks">{% for b in brands_all %}<label class="gc-check"><input type="checkbox" name="brand_ids[]" value="{{ b.id_manufacturer }}" {{ b.id_manufacturer in sel_brands ? 'checked' }}> {{ b.name }}</label>{% else %}<span class="gc-muted">Keine Marken angelegt.</span>{% endfor %}</div>
+      <small class="gc-muted">Nichts angehakt = alle Marken.</small>
+    </section>
+    <section class="gc-card">
+      <h2 class="gc-h2">Kategorien</h2>
+      {{ ui.sw('inc_cats', sw.inc_cats, 'Kategorieliste aufnehmen', 'Zeigt der KI die Struktur Ihres Sortiments.') }}
+      <div class="gc-row gc-row--start"><button type="button" class="gc-btn gc-btn--sm" data-all="cat_ids[]">Alle</button><button type="button" class="gc-btn gc-btn--sm" data-none="cat_ids[]">Keine</button></div>
+      <div class="gc-checks">{% for c in top_cats %}<label class="gc-check"><input type="checkbox" name="cat_ids[]" value="{{ c.id_category }}" {{ c.id_category in sel_cats ? 'checked' }}> {{ c.name }}</label>{% endfor %}</div>
+      <small class="gc-muted">Hauptkategorien inkl. Unterkategorien. Nichts angehakt = ganzer Katalog. Gilt auch für die Produkte.</small>
+    </section>
+  </div>
+
+  {# ---------------------------------------------------------- Bewertungen #}
+  <div class="gc-pane" data-pane="reviews">
+    <section class="gc-card">
+      <h2 class="gc-h2">Echte Käuferbewertungen</h2>
+      <p class="gc-muted">Nur eingeloggte Kunden mit versendeter, nicht zurückgegebener Bestellung dürfen bewerten. Auf der Produktseite stehen sie rechts, links die deklarierte KI-Zusammenfassung.</p>
+      {{ ui.sw('rv_on', rv.on, 'Bewertungsprogramm aktiv', 'Aus = keine Anzeige und kein Formular. Erst einschalten, wenn die Server-Prüfung unten passt.') }}
+      <div class="gc-row gc-row--start">
+        <a class="gc-btn gc-btn--primary" href="{{ reviews_url }}">Bewertungen prüfen ({{ rv.counts.pending }} offen{% if rv.counts.reported %}, {{ rv.counts.reported }} gemeldet{% endif %})</a>
+      </div>
+      <div class="gc-cols">
+        <label class="gc-label">Frühestens … Tage nach Versand<input type="number" min="0" max="60" class="form-control" name="rv_days" value="{{ rv.days }}"></label>
+        <label class="gc-label">Mindestlänge jeder Bewertung (Zeichen)<input type="number" min="10" max="1000" class="form-control" name="rv_min_text" value="{{ rv.min_text }}"></label>
+      </div>
+      <h3 class="gc-h3">Zählende Bestellstatus</h3>
+      <div class="gc-checks">{% for st in rv.states %}<label class="gc-check"><input type="checkbox" name="rv_states[]" value="{{ st.id }}" {{ st.on ? 'checked' }}> {{ st.name }}</label>{% endfor %}</div>
+      <small class="gc-muted">Eine Bestellung zählt als «Artikel erhalten», sobald sie einen dieser Status hatte (Standard: Versendet und Geliefert).</small>
+      {{ ui.sw('rv_auto', rv.auto, 'Automatisch freigeben, wenn alle Prüfungen bestanden sind', 'Nur Bewertungen ohne Fotos oder Videos. Medien prüft immer ein Mensch. Empfehlung: aus.') }}
+    </section>
+
+    <section class="gc-card">
+      <h2 class="gc-h2">Gutschein als Dank</h2>
+      {{ ui.sw('rv_voucher_on', rv.voucher_on, 'Gutschein nach Freigabe', 'Gilt für jede erfüllte Bewertung, unabhängig von der Note. Wird auf der Produktseite und im Formular offen genannt; die Bewertung erhält die Kennzeichnung «Gegen Gutschein eingereicht».') }}
+      <div class="gc-cols">
+        <label class="gc-label">Wert ({{ rv.currency }})<input class="form-control" name="rv_voucher_amount" value="{{ rv.voucher_amount }}"></label>
+        <label class="gc-label">Mindestbestellwert ({{ rv.currency }})<input class="form-control" name="rv_voucher_min" value="{{ rv.voucher_min }}"></label>
+        <label class="gc-label">Gültig (Tage)<input type="number" min="1" max="365" class="form-control" name="rv_voucher_days" value="{{ rv.voucher_days }}"></label>
+        <label class="gc-label">Max. Gutscheine je Kunde und Jahr<input type="number" min="1" max="50" class="form-control" name="rv_voucher_year_max" value="{{ rv.year_max }}"></label>
+        <label class="gc-label">Mindestlänge für den Gutschein (Zeichen)<input type="number" min="0" max="2000" class="form-control" name="rv_min_chars" value="{{ rv.min_chars }}"></label>
+      </div>
+      {{ ui.sw('rv_photo_req', rv.photo_req, 'Für den Gutschein mindestens ein eigenes Foto', 'Die Bewertung ohne Foto wird trotzdem veröffentlicht, bekommt aber keinen Gutschein.') }}
+    </section>
+
+    <section class="gc-card">
+      <h2 class="gc-h2">Fotos und Videos</h2>
+      <table class="gc-table">{% for c in rv.caps %}<tr><td class="{{ c.ok ? 'gc-ok' : 'gc-err' }}">{{ c.ok ? '✓' : '✕' }}</td><td>{{ c.label }}</td><td>{{ c.detail }}</td></tr>{% endfor %}</table>
+      <div class="gc-cols">
+        <label class="gc-label">Max. Fotos je Bewertung (0 = aus)<input type="number" min="0" max="6" class="form-control" name="rv_img_max" value="{{ rv.img_max }}"></label>
+        <label class="gc-label">Video: max. Sekunden<input type="number" min="5" max="120" class="form-control" name="rv_video_sec" value="{{ rv.video_sec }}"></label>
+        <label class="gc-label">Video: max. Grösse (MB)<input type="number" min="1" max="200" class="form-control" name="rv_video_mb" value="{{ rv.video_mb }}"></label>
+      </div>
+      {{ ui.sw('rv_video_on', rv.video_on, 'Video-Upload erlauben', 'Mit ffmpeg wird jedes Video im Cron nach MP4 (H.264) umgewandelt, ohne ffmpeg sind nur geprüfte MP4-Dateien möglich. Die tatsächliche Grösse begrenzt zusätzlich upload_max_filesize.') }}
+      <div class="gc-cols">
+        <label class="gc-label">Pfad zu ffmpeg (nur wenn nicht automatisch gefunden)<input class="form-control" name="rv_ffmpeg" value="{{ rv.ffmpeg }}" placeholder="/usr/bin/ffmpeg"></label>
+        <label class="gc-label">Pfad zu ffprobe<input class="form-control" name="rv_ffprobe" value="{{ rv.ffprobe }}" placeholder="/usr/bin/ffprobe"></label>
+      </div>
+      <p class="gc-muted">Fotos werden neu kodiert (EXIF/GPS entfernt), auf 1600 px verkleinert und ausserhalb des Webroots gespeichert. Auslieferung nur über das Modul, Freigabe vorausgesetzt.</p>
+    </section>
+
+    <section class="gc-card">
+      <h2 class="gc-h2">Spam-Schutz und Strukturierte Daten</h2>
+      <p class="gc-muted">Aktiv und nicht abschaltbar: Kaufprüfung, Formular-Token mit Zeitfalle, Honigtopf, Ratenbegrenzung (3 pro Stunde, 10 pro Tag), Linkverbot, Duplikatprüfung.</p>
+      <label class="gc-label">Zusätzlich gesperrte Wörter (eines pro Zeile)<textarea class="form-control" rows="3" name="rv_block">{{ rv.block }}</textarea></label>
+      {{ ui.sw('rv_ld', rv.ld, 'Bewertungs-Sterne für Suchmaschinen ausgeben (JSON-LD)', 'Nur aus Bewertungen ohne Gegenleistung und ab 3 Stück. Vorher im Rich-Results-Test prüfen: Ihr Theme gibt evtl. schon ein Product-Objekt aus.') }}
+      {{ ui.sw('rv_ld_inc', rv.ld_inc, 'Auch gegen Gutschein eingereichte Bewertungen einbeziehen', 'Nicht empfohlen: Google lehnt belohnte Bewertungen in Rich Results ab.') }}
+      {{ ui.sw('rv_purge', rv.purge, 'Beim Deinstallieren alle Bewertungen und Medien löschen', 'Aus = die Daten bleiben erhalten.') }}
+    </section>
+  </div>
+
+  {# ---------------------------------------------------------- KI-Zugriff #}
+  <div class="gc-pane" data-pane="ai">
+    <section class="gc-card">
+      <h2 class="gc-h2">Welche KI darf Ihren Shop lesen?</h2>
+      {{ ui.sw('robots', robots, 'robots.txt automatisch pflegen', 'Das Modul ergänzt die robots.txt mit einem eigenen Block, der Rest bleibt unverändert.') }}
+      <div class="gc-checks gc-checks--col">
+        {% for p in providers %}<label class="gc-check"><input type="checkbox" name="bots[]" value="{{ p.key }}" {{ p.on ? 'checked' }}> <b>{{ p.label }}</b> <span class="gc-muted">{{ p.agents }}</span></label>{% endfor %}
+      </div>
+      <h3 class="gc-h3">Vorschau robots.txt-Block</h3>
+      <pre class="gc-code" id="gc-robots">{{ robots_preview }}</pre>
+      <button type="button" class="gc-btn gc-btn--sm" data-copy="gc-robots">Kopieren</button>
+    </section>
+    <section class="gc-card gc-warnbox">
+      <h2 class="gc-h2">Cloudflare oder andere Firewall davor?</h2>
+      <p>Die robots.txt ist nur eine Einladung. Cloudflare kann KI-Bots trotzdem vorher abweisen – dann kommt keine KI bis zum Shop. Prüfen mit «Erreichbarkeit testen» im Dashboard.</p>
+      <ol>
+        <li>Cloudflare → <b>Security → Bots</b>: «Block AI bots» auf <b>Do not block</b>, «AI Labyrinth» aus.</li>
+        <li>«Bot Fight Mode» aus oder eine Ausnahme setzen: <b>Security → WAF → Custom rules</b>, Bedingung «Verified Bot» <i>oder</i> URI beginnt mit <code>/llms</code>, Aktion <b>Skip</b>.</li>
+        <li>Unter <b>AI Crawl Control</b> die gewünschten Anbieter auf «Allow» stellen.</li>
+        <li>Mit Abrufzählung: Cache-Regel «Bypass» für <code>/llms*</code>.</li>
+      </ol>
+    </section>
+  </div>
+
+  {# ---------------------------------------------------------- Cron #}
+  <div class="gc-pane" data-pane="cron">
+    <section class="gc-card">
+      <h2 class="gc-h2"><span class="gc-num {{ steps[3].ok ? 'is-ok' }}">⏱</span> Automatische Aktualisierung</h2>
+      {{ ui.sw('cron_on', sw.cron_on, 'Cron aktiv', 'Aus = die Adressen antworten ohne etwas zu tun.') }}
+      <label class="gc-label">Alle 10 Minuten – Lager, Preise und Änderungen <small class="gc-muted">(ohne Änderungen kehrt der Aufruf sofort zurück)</small></label>
+      <div class="gc-copy"><input type="text" class="form-control" readonly value="{{ cron_url }}" id="gc-cron1"><button type="button" class="gc-btn" data-copy="gc-cron1">Kopieren</button></div>
+      <label class="gc-label">Täglich 03:45 – kompletter Neuaufbau</label>
+      <div class="gc-copy"><input type="text" class="form-control" readonly value="{{ cron_full_url }}" id="gc-cron2"><button type="button" class="gc-btn" data-copy="gc-cron2">Kopieren</button></div>
+      <p class="gc-muted">Eintragen im Hosting-Cronjob (z.B. <code>curl -s "URL"</code>) oder im Modul «Cron tasks manager». Letzter Lauf: {{ last_cron ?: 'noch nie' }}.</p>
+    </section>
+  </div>
+
+  <div class="gc-savebar"><button type="submit" class="gc-btn gc-btn--primary">Alles speichern</button></div>
+  </form>
+
+  <footer class="gc-foot">GEO.Convado · Convado · Schweiz</footer>
+</div>
+
+<script>
+(function () {
+  var token = '{{ csrf_token('geoconvado') }}';
+  var post = function (url, data) {
+    var body = new FormData(); body.append('_token', token);
+    Object.keys(data || {}).forEach(function (k) { body.append(k, data[k]); });
+    return fetch(url, { method: 'POST', body: body, credentials: 'same-origin' }).then(function (r) { return r.json(); });
+  };
+  var show = function (t) {
+    document.querySelectorAll('.gc-tab').forEach(function (b) { b.classList.toggle('is-active', b.dataset.tab === t); });
+    document.querySelectorAll('.gc-pane').forEach(function (p) { p.hidden = p.dataset.pane !== t; });
+    document.getElementById('gc-tab-input').value = t;
+    document.querySelector('.gc-savebar').hidden = t === 'dashboard';
+  };
+  document.querySelectorAll('.gc-tab').forEach(function (b) { b.addEventListener('click', function () { show(b.dataset.tab); }); });
+  show(document.getElementById('gc-tab-input').value || 'dashboard');
+
+  document.querySelectorAll('[data-copy]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      var el = document.getElementById(b.dataset.copy);
+      navigator.clipboard.writeText(el.value !== undefined ? el.value : el.textContent).then(function () { b.textContent = 'Kopiert ✓'; });
+    });
+  });
+  document.querySelectorAll('[data-all],[data-none]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      var n = b.dataset.all || b.dataset.none;
+      document.querySelectorAll('input[name="' + n + '"]').forEach(function (i) { i.checked = !!b.dataset.all; });
+    });
+  });
+
+  var msg = document.getElementById('geo-run-msg');
+  document.getElementById('geo-run').addEventListener('click', function () {
+    var btn = this; btn.disabled = true; msg.textContent = 'Läuft…';
+    post('{{ path('geoconvado_run') }}').then(function (j) { msg.textContent = j.success ? j.data.message : (j.error || 'Fehler'); if (j.success && j.data.status === 'done') location.reload(); })
+      .catch(function () { msg.textContent = 'Fehler beim Aufruf'; }).finally(function () { btn.disabled = false; });
+  });
+
+  document.getElementById('geo-check').addEventListener('click', function () {
+    var btn = this, out = document.getElementById('geo-check-out'); btn.disabled = true; msg.textContent = 'Teste… (bis 30 s)';
+    post('{{ path('geoconvado_check') }}').then(function (j) {
+      msg.textContent = '';
+      if (!j.success) { out.textContent = j.error || 'Fehler'; return; }
+      var t = document.createElement('table'); t.className = 'gc-table gc-card';
+      j.data.rows.forEach(function (r) {
+        var tr = t.insertRow(); tr.insertCell().textContent = r.ok ? '✓' : '✕'; tr.cells[0].className = r.ok ? 'gc-ok' : 'gc-err';
+        tr.insertCell().textContent = r.label; tr.insertCell().textContent = r.detail;
+      });
+      out.innerHTML = '';
+      if (j.data.cloudflare) {
+        var n = document.createElement('div'); n.className = 'gc-alert ' + (j.data.rows.every(function (r) { return r.ok; }) ? 'ok' : 'err');
+        n.textContent = 'Cloudflare erkannt. Blockierte Zeilen beheben Sie im Reiter «KI-Zugriff». Hinweis: Der Test kommt von Ihrem Server, nicht von den echten KI-Servern – Cloudflare kann echte, verifizierte Bots anders behandeln.';
+        out.appendChild(n);
+      }
+      out.appendChild(t);
+    }).catch(function () { msg.textContent = 'Fehler beim Test'; }).finally(function () { btn.disabled = false; });
+  });
+
+  var tr = document.getElementById('geo-tr-msg');
+  document.querySelectorAll('[data-translate]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      var g = b.dataset.translate, src = document.querySelector('textarea[data-group="' + g + '"][data-iso="{{ default_iso }}"]');
+      if (!src || !src.value.trim()) { tr.textContent = 'Zuerst den Text in {{ default_iso|upper }} eingeben.'; return; }
+      b.disabled = true; tr.textContent = 'Übersetze…';
+      post('{{ path('geoconvado_translate') }}', { text: src.value, source: '{{ default_iso }}' }).then(function (j) {
+        if (!j.success) { tr.textContent = j.error || 'Fehler'; return; }
+        Object.keys(j.data).forEach(function (id) { var el = document.querySelector('textarea[name="' + g + '_' + id + '"]'); if (el) el.value = j.data[id]; });
+        tr.textContent = 'Übersetzt – bitte prüfen und «Alles speichern».';
+      }).catch(function () { tr.textContent = 'Fehler beim Übersetzen'; }).finally(function () { b.disabled = false; });
+    });
+  });
+})();
+</script>
+{% endblock %}

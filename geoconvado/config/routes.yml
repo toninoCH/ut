@@ -1,0 +1,49 @@
+geoconvado_config:
+  path: /geoconvado/config
+  methods: [GET, POST]
+  defaults:
+    _controller: 'GeoConvado\Controller\Admin\ConfigController::indexAction'
+    _legacy_controller: AdminModules
+    _legacy_link: AdminModules
+
+geoconvado_run:
+  path: /geoconvado/run
+  methods: [POST]
+  defaults:
+    _controller: 'GeoConvado\Controller\Admin\ConfigController::runAction'
+    _legacy_controller: AdminModules
+
+geoconvado_check:
+  path: /geoconvado/check
+  methods: [POST]
+  defaults:
+    _controller: 'GeoConvado\Controller\Admin\ConfigController::checkAction'
+    _legacy_controller: AdminModules
+
+geoconvado_translate:
+  path: /geoconvado/translate
+  methods: [POST]
+  defaults:
+    _controller: 'GeoConvado\Controller\Admin\ConfigController::translateAction'
+    _legacy_controller: AdminModules
+
+geoconvado_reviews:
+  path: /geoconvado/reviews
+  methods: [GET]
+  defaults:
+    _controller: 'GeoConvado\Controller\Admin\ReviewController::indexAction'
+    _legacy_controller: AdminModules
+
+geoconvado_review_action:
+  path: /geoconvado/reviews/action
+  methods: [POST]
+  defaults:
+    _controller: 'GeoConvado\Controller\Admin\ReviewController::actionAction'
+    _legacy_controller: AdminModules
+
+geoconvado_review_media:
+  path: /geoconvado/reviews/media
+  methods: [GET]
+  defaults:
+    _controller: 'GeoConvado\Controller\Admin\ReviewController::mediaAction'
+    _legacy_controller: AdminModules
