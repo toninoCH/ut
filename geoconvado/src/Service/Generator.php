@@ -60,6 +60,162 @@ final class Generator
     private ?array $aio = null;
 
     /**
+     * Beschriftungen je Sprache (Standard: Deutsch, wortgleich zu den früheren Versionen).
+     *
+     * @return string Beschriftung in der Sprache $iso, sonst Deutsch
+     */
+    private static function L(string $key, string $iso): string
+    {
+        static $t = [
+            'buy' => ['de' => 'Direkt kaufen (KI-Agent)', 'en' => 'Buy directly (AI agent)', 'fr' => 'Acheter directement (agent IA)'],
+            'related' => ['de' => 'Passt dazu', 'en' => 'Goes well with', 'fr' => 'Se marie avec'],
+            'profile' => ['de' => 'Kurzprofil', 'en' => 'Key facts', 'fr' => 'Profil'],
+            'sku' => ['de' => 'Artikelnummer', 'en' => 'SKU', 'fr' => 'Référence'],
+            'brand' => ['de' => 'Marke', 'en' => 'Brand', 'fr' => 'Marque'],
+            'image' => ['de' => 'Bild', 'en' => 'Image', 'fr' => 'Image'],
+            'price' => ['de' => 'Preis', 'en' => 'Price', 'fr' => 'Prix'],
+            'vat_incl' => ['de' => 'inkl. MwSt.', 'en' => 'incl. VAT', 'fr' => 'TVA incl.'],
+            'regular' => ['de' => 'Originalpreis', 'en' => 'Original price', 'fr' => 'Prix d’origine'],
+            'sale' => ['de' => 'Aktion', 'en' => 'sale', 'fr' => 'promotion'],
+            'avail' => ['de' => 'Verfügbarkeit', 'en' => 'Availability', 'fr' => 'Disponibilité'],
+            'desc' => ['de' => 'Beschreibung', 'en' => 'Description', 'fr' => 'Description'],
+            'variants' => ['de' => 'Varianten', 'en' => 'Variants', 'fr' => 'Variantes'],
+            'variant' => ['de' => 'Variante', 'en' => 'Variant', 'fr' => 'Variante'],
+            'in_stock' => ['de' => 'lieferbar', 'en' => 'in stock', 'fr' => 'disponible'],
+            'no_stock' => ['de' => 'nicht an Lager', 'en' => 'out of stock', 'fr' => 'non disponible'],
+            'buy_short' => ['de' => 'kaufen', 'en' => 'buy', 'fr' => 'acheter'],
+            'use_cases' => ['de' => 'Geeignet für', 'en' => 'Suitable for', 'fr' => 'Convient pour'],
+            'summary' => ['de' => 'Neutrale Einschätzung', 'en' => 'Neutral assessment', 'fr' => 'Évaluation neutre'],
+            'pros' => ['de' => 'Vorteile', 'en' => 'Pros', 'fr' => 'Avantages'],
+            'cons' => ['de' => 'Nachteile', 'en' => 'Cons', 'fr' => 'Inconvénients'],
+            'best_for' => ['de' => 'Ideal für', 'en' => 'Ideal for', 'fr' => 'Idéal pour'],
+            'not_for' => ['de' => 'Weniger geeignet für', 'en' => 'Less suitable for', 'fr' => 'Moins adapté pour'],
+            'rating' => ['de' => 'Bewertung', 'en' => 'Rating', 'fr' => 'Note'],
+            'rv_title' => ['de' => 'Bewertungen verifizierter Käufer', 'en' => 'Verified-buyer reviews', 'fr' => 'Avis d’acheteurs vérifiés'],
+            'q' => ['de' => 'F', 'en' => 'Q', 'fr' => 'Q'],
+            'tagline' => ['de' => ' – Online-Shop. Preise inkl. MwSt.', 'en' => ' – online shop. Prices incl. VAT.', 'fr' => ' – boutique en ligne. Prix TVA incluse.'],
+            'g_source' => ['de' => 'Quelle: Google Business Profile, alle Noten, ungefiltert', 'en' => 'Source: Google Business Profile, all ratings, unfiltered', 'fr' => 'Source : profil Google Business, toutes les notes, sans filtre'],
+            'verifiable' => ['de' => 'prüfbar', 'en' => 'verifiable', 'fr' => 'vérifiable'],
+            'prices_note' => ['de' => 'Alle Preise inkl. MwSt. in %s', 'en' => 'All prices incl. VAT in %s', 'fr' => 'Tous les prix TVA incluse en %s'],
+            'too_big' => ['de' => "Hinweis\n\nDer Katalog ist zu gross für eine Datei. Bitte die Kategorie-Dateien verwenden:", 'en' => "Note\n\nThe catalogue is too large for one file. Please use the category files:", 'fr' => "Remarque\n\nLe catalogue est trop volumineux pour un seul fichier. Veuillez utiliser les fichiers par catégorie :"],
+            'rv_voucher' => ['de' => 'davon %d gegen Gutschein eingereicht', 'en' => '%d of them submitted in exchange for a voucher', 'fr' => 'dont %d soumis contre un bon d’achat'],
+            'rv_source' => ['de' => 'Quelle: eigener Shop, alle Noten, ungefiltert', 'en' => 'Source: own shop, all ratings, unfiltered', 'fr' => 'Source : boutique, toutes les notes, sans filtre'],
+            'of' => ['de' => 'aus', 'en' => 'from', 'fr' => 'sur'],
+            'reviews' => ['de' => 'Bewertungen', 'en' => 'reviews', 'fr' => 'avis'],
+            'customer_reviews' => ['de' => 'Kundenbewertungen', 'en' => 'customer reviews', 'fr' => 'avis clients'],
+            'shop_rating' => ['de' => 'Shop-Bewertung', 'en' => 'Shop rating', 'fr' => 'Note de la boutique'],
+            'google_rating' => ['de' => 'Google-Bewertung', 'en' => 'Google rating', 'fr' => 'Note Google'],
+            'updated' => ['de' => 'Stand', 'en' => 'Updated', 'fr' => 'Mise à jour'],
+            'auto_updated' => ['de' => 'wird automatisch aktualisiert', 'en' => 'updated automatically', 'fr' => 'mis à jour automatiquement'],
+            'commerce' => ['de' => 'Einkaufen & Bestellen', 'en' => 'Shopping & ordering', 'fr' => 'Achat et commande'],
+            'guide' => ['de' => 'Anleitung für KI-Agenten', 'en' => 'Instructions for AI agents', 'fr' => 'Instructions pour agents IA'],
+            'catalogs' => ['de' => 'Produktkataloge', 'en' => 'Product catalogues', 'fr' => 'Catalogues de produits'],
+            'products' => ['de' => 'Produkte', 'en' => 'products', 'fr' => 'produits'],
+            'none_products' => ['de' => '(keine Produkte)', 'en' => '(no products)', 'fr' => '(aucun produit)'],
+            'full_catalog' => ['de' => 'Vollständiger Katalog', 'en' => 'Full catalogue', 'fr' => 'Catalogue complet'],
+            'categories' => ['de' => 'Kategorien', 'en' => 'Categories', 'fr' => 'Catégories'],
+            'brands' => ['de' => 'Marken', 'en' => 'Brands', 'fr' => 'Marques'],
+            'service' => ['de' => 'Service & Rechtliches', 'en' => 'Service & legal', 'fr' => 'Service et mentions légales'],
+            'faq' => ['de' => 'Häufige Fragen', 'en' => 'Frequently asked questions', 'fr' => 'Questions fréquentes'],
+            'customer_questions' => ['de' => 'Kundenfragen zu', 'en' => 'Customer questions about', 'fr' => 'Questions clients sur'],
+            'languages' => ['de' => 'Sprachen', 'en' => 'Languages', 'fr' => 'Langues'],
+            'full_short' => ['de' => 'Vollkatalog', 'en' => 'Full catalogue', 'fr' => 'Catalogue complet'],
+            'guide1' => [
+                'de' => 'Produkt wählen und den Link «Direkt kaufen (KI-Agent)» öffnen. Es öffnet sich eine Bestätigungsseite; nach dem Klick auf «In den Warenkorb und zur Kasse» liegt der Artikel im Warenkorb und die Kasse öffnet sich.',
+                'en' => 'Choose a product and open its “Buy directly (AI agent)” link. A confirmation page opens; after the customer clicks “Add to cart and checkout”, the item is in the cart and checkout opens.',
+                'fr' => 'Choisir un produit et ouvrir le lien « Acheter directement (agent IA) ». Une page de confirmation s’ouvre ; après le clic sur « Ajouter au panier et commander », l’article est dans le panier et la caisse s’ouvre.',
+            ],
+            'guide2' => [
+                'de' => 'Menge über den Parameter `qty` (1–20), Variante über `ipa` (Kombinations-ID). Mehrere Artikel: Links nacheinander öffnen, der Warenkorb bleibt erhalten.',
+                'en' => 'Quantity via the `qty` parameter (1–20), variant via `ipa` (combination id). Several items: open the links one after another; the cart is kept.',
+                'fr' => 'Quantité via le paramètre `qty` (1–20), variante via `ipa` (id de combinaison). Plusieurs articles : ouvrir les liens l’un après l’autre, le panier est conservé.',
+            ],
+            'guide3' => [
+                'de' => 'Die Bestellung schliesst immer der Kunde selbst ab (Adresse, Zahlung). Bitte keine Zahlungsdaten erfragen.',
+                'en' => 'The customer always completes the order themselves (address, payment). Please do not ask for payment data.',
+                'fr' => 'Le client finalise toujours la commande lui-même (adresse, paiement). Ne demandez aucune donnée de paiement.',
+            ],
+            'guide4' => [
+                'de' => 'Lieferung nur innerhalb der Lieferzone. Preise und Lager sind tagesaktuell, massgebend ist die Kasse.',
+                'en' => 'Delivery only within the delivery zone. Prices and stock are updated daily; the checkout is authoritative.',
+                'fr' => 'Livraison uniquement dans la zone de livraison. Prix et stock sont actualisés chaque jour ; la caisse fait foi.',
+            ],
+        ];
+
+        return $t[$key][$iso] ?? $t[$key]['de'] ?? $key;
+    }
+
+    /** Beste Produktbeschreibung: Kurzbeschreibung, Meta-Beschreibung, Langtext. Reine Wiederholung des Namens zählt nicht. */
+    private function bestDescription(\Product $p): string
+    {
+        $name = mb_strtolower(trim((string) $p->name));
+        foreach ([(string) $p->description_short, (string) $p->meta_description, (string) $p->description] as $raw) {
+            $raw = (string) preg_replace('#</(p|li|div|h[1-6]|tr)>|<br\s*/?>#i', ' ', $raw);
+            $text = trim((string) preg_replace('/\s+/u', ' ', html_entity_decode(strip_tags($raw), ENT_QUOTES, 'UTF-8')));
+            if (mb_strlen($text) < 40) {
+                continue;
+            }
+            $lower = mb_strtolower($text);
+            if ($lower === $name || (mb_strpos($lower, $name) === 0 && mb_strlen($lower) < mb_strlen($name) + 25)) {
+                continue;
+            }
+            // Fast gleich wie der Name (z. B. «… (ANSI)» statt «… (US)») bringt keine Information.
+            similar_text(mb_substr($lower, 0, 200), mb_substr($name, 0, 200), $pct);
+            if ($pct >= 80 && mb_strlen($lower) < mb_strlen($name) + 40) {
+                continue;
+            }
+
+            return $text;
+        }
+
+        return '';
+    }
+
+    /**
+     * Kurzprofil aus den Produktmerkmalen: konfigurierte Merkmale (GEOCONVADO_PROFILE_FEATURES, Komma-getrennt),
+     * sonst die ersten sechs. Ja/Nein-Werte werden mit dem Merkmalsnamen beschriftet.
+     *
+     * Einträge sind Merkmals-IDs (sprachunabhängig, empfohlen) oder Merkmalsnamen.
+     *
+     * @param array<string, array<string, bool>> $feat Merkmale: Name => [Wert => true]
+     * @param array<string, int> $featId Merkmalsname => Merkmals-ID
+     */
+    private static function profileParts(array $feat, array $featId): array
+    {
+        $want = array_values(array_filter(array_map('trim', explode(',', (string) \Configuration::get('GEOCONVADO_PROFILE_FEATURES')))));
+        $pick = [];
+        if ($want) {
+            $byName = [];
+            $byId = [];
+            foreach ($feat as $name => $vals) {
+                $byName[mb_strtolower((string) $name)] = [(string) $name, $vals];
+                if (!empty($featId[$name])) {
+                    $byId[(int) $featId[$name]] = [(string) $name, $vals];
+                }
+            }
+            foreach ($want as $w) {
+                $hit = ctype_digit($w) ? ($byId[(int) $w] ?? null) : ($byName[mb_strtolower($w)] ?? null);
+                if ($hit) {
+                    $pick[] = $hit;
+                }
+            }
+        }
+        if (!$pick) {
+            foreach (array_slice($feat, 0, 6, true) as $name => $vals) {
+                $pick[] = [(string) $name, $vals];
+            }
+        }
+        $yesNo = ['ja', 'nein', 'yes', 'no', 'oui', 'non'];
+        $out = [];
+        foreach ($pick as [$name, $vals]) {
+            $v = implode('/', array_map('strval', array_keys($vals)));
+            $out[] = in_array(mb_strtolower($v), $yesNo, true) ? $name . ': ' . $v : $v;
+        }
+
+        return $out;
+    }
+
+    /**
      * Führt Arbeit bis zum Zeitbudget aus.
      *
      * @return array{status: string, done: int, total: int, message: string}
@@ -92,7 +248,7 @@ final class Generator
                 $stale = !$state['finished_at'] || (time() - strtotime((string) $state['finished_at'])) > 86400;
 
                 $age = $state['finished_at'] ? time() - strtotime((string) $state['finished_at']) : PHP_INT_MAX;
-                $startedTs = $state['started_at'] ? (int) strtotime((string) $state['started_at']) : 0;
+                $startedTs = !empty($state['started_at']) ? (int) strtotime((string) $state['started_at']) : 0;
                 // Dieses Ziel ist veraltet, wenn nach seinem letzten Start etwas geändert wurde (oder es nie fertig wurde).
                 $changed = $dirty && $dirtyAt >= $startedTs;
                 // Selbstheilung: Arbeitsordner fehlt (z. B. nach «Cache leeren») oder Lauf hängt seit über 1 h.
@@ -207,13 +363,19 @@ final class Generator
         $count = (int) $state['product_count'];
         $cursor = (int) $state['cursor_id'];
 
+        $failed = 0;
+        $firstError = '';
         foreach ($ids as $row) {
             $idProduct = (int) $row['id_product'];
             $cursor = $idProduct;
             try {
                 [$slug, $title, $md] = $this->renderProduct($idProduct, $idShop, $idLang);
             } catch (\Throwable $e) {
-                continue; // Einzelnes defektes Produkt stoppt den Lauf nie
+                // Einzelnes defektes Produkt stoppt den Lauf nie – scheitern aber ALLE Produkte eines Blocks,
+                // liegt ein Umgebungsfehler vor (z. B. fehlender Kontext) und der Lauf darf nicht «fertig» melden.
+                ++$failed;
+                $firstError = $firstError !== '' ? $firstError : $e->getMessage();
+                continue;
             }
             if ($md === '' || ($max > 0 && $count >= $max)) {
                 continue;
@@ -229,6 +391,16 @@ final class Generator
         }
         foreach ($handles as $h) {
             fclose($h);
+        }
+        if ($failed > 0 && $failed === count($ids)) {
+            $msg = sprintf('Alle %d Produkte eines Blocks sind fehlgeschlagen: %s', $failed, $firstError);
+            \PrestaShopLogger::addLog('GEO.Convado: ' . $msg, 3, null, 'geoconvado');
+            \Db::getInstance()->update('geoconvado_state', [
+                'status' => 'error',
+                'last_error' => pSQL(substr($msg, 0, 250)),
+            ], 'id_shop=' . $idShop . ' AND id_lang=' . $idLang);
+
+            return $this->state($idShop, $idLang);
         }
 
         \Db::getInstance()->update('geoconvado_state', [
@@ -266,13 +438,13 @@ final class Generator
             $file = $header . '## ' . $c['title'] . "\n\n" . $body;
             AtomicFile::write($this->outRoot() . $prefix . 'llms/' . $iso . '/' . $slug . '.txt', $file);
             $bytes += strlen($file);
-            $catLinks[] = '- [' . $c['title'] . ' (' . $c['count'] . ' Produkte)](' . $base . '/' . $prefix . 'llms/' . $iso . '/' . $slug . '.txt)';
+            $catLinks[] = '- [' . $c['title'] . ' (' . $c['count'] . ' ' . self::L('products', $iso) . ')](' . $base . '/' . $prefix . 'llms/' . $iso . '/' . $slug . '.txt)';
         }
 
         // 2) Sprach-Index
         $index = $header
-            . "## Produktkataloge\n\n" . ($catLinks ? implode("\n", $catLinks) : '- (keine Produkte)') . "\n\n"
-            . '- [Vollständiger Katalog](' . $base . '/' . $prefix . 'llms-full-' . $iso . ".txt)\n\n"
+            . '## ' . self::L('catalogs', $iso) . "\n\n" . ($catLinks ? implode("\n", $catLinks) : '- ' . self::L('none_products', $iso)) . "\n\n"
+            . '- [' . self::L('full_catalog', $iso) . '](' . $base . '/' . $prefix . 'llms-full-' . $iso . ".txt)\n\n"
             . $this->categoriesSection($idShop, $idLang)
             . $this->brandsSection($idLang)
             . $this->cmsSection($idShop, $idLang)
@@ -282,7 +454,7 @@ final class Generator
         // 3) Vollkatalog (Grösse begrenzt – grosse Kataloge nur als Index)
         $full = $header . $this->faqSection($aio, $iso) . (strlen($fullBody) <= self::FULL_MAX_BYTES
             ? $fullBody
-            : "## Hinweis\n\nDer Katalog ist zu gross für eine Datei. Bitte die Kategorie-Dateien verwenden:\n\n" . implode("\n", $catLinks) . "\n");
+            : '## ' . self::L('too_big', $iso) . "\n\n" . implode("\n", $catLinks) . "\n");
 
         $ok = AtomicFile::write($this->outRoot() . $prefix . 'llms-' . $iso . '.txt', $index)
             && AtomicFile::write($this->outRoot() . $prefix . 'llms-full-' . $iso . '.txt', $full);
@@ -291,10 +463,10 @@ final class Generator
         if ($ok && $idShop === (int) \Configuration::get('PS_SHOP_DEFAULT')) {
             $langs = [];
             foreach (\Language::getLanguages(true, $idShop) as $l) {
-                $langs[] = '- [' . $l['name'] . '](' . $base . '/llms-' . $l['iso_code'] . '.txt) · [Vollkatalog](' . $base . '/llms-full-' . $l['iso_code'] . '.txt)';
+                $langs[] = '- [' . $l['name'] . '](' . $base . '/llms-' . $l['iso_code'] . '.txt) · [' . self::L('full_short', (string) $l['iso_code']) . '](' . $base . '/llms-full-' . $l['iso_code'] . '.txt)';
             }
             if ($idLang === (int) \Configuration::get('PS_LANG_DEFAULT', null, null, $idShop)) {
-                AtomicFile::write($this->outRoot() . 'llms.txt', $index . "## Sprachen\n\n" . implode("\n", $langs) . "\n");
+                AtomicFile::write($this->outRoot() . 'llms.txt', $index . '## ' . self::L('languages', $iso) . "\n\n" . implode("\n", $langs) . "\n");
                 AtomicFile::write($this->outRoot() . 'llms-full.txt', $full);
                 AtomicFile::write($this->outRoot() . 'llms.json', $this->json($idShop, $idLang, $base));
             }
@@ -337,71 +509,123 @@ final class Generator
             return [$slug, $catTitle, ''];
         }
 
+        $iso = (string) (\Language::getIsoById($idLang) ?: 'de');
+        $showPrice = self::opt('GEOCONVADO_F_PRICE') && self::pricesPublic() && (bool) $p->show_price;
+
+        // Merkmale einmal laden und gleichnamige zusammenfassen (z. B. mehrere Tastenkappenfarben in einer Zeile).
+        $feat = [];
+        $featId = [];
+        foreach (self::opt('GEOCONVADO_F_FEATURES') ? \Product::getFrontFeaturesStatic($idLang, $idProduct) : [] as $f) {
+            $fn = trim((string) $f['name']);
+            $fv = trim((string) $f['value']);
+            if ($fn !== '' && $fv !== '') {
+                $feat[$fn][$fv] = true;
+                $featId[$fn] = (int) ($f['id_feature'] ?? 0);
+            }
+        }
+
         $lines = ['### ' . $this->esc((string) $p->name), ''];
+        // Kurzprofil: die wichtigsten Fakten in einer Zeile – zuerst, damit sie auch bei gekürztem Lesen ankommen.
+        $profile = self::profileParts($feat, $featId);
+        if ($showPrice) {
+            $profile[] = $currency . ' ' . number_format($price, 2, '.', '');
+        }
+        if (self::opt('GEOCONVADO_F_STOCK')) {
+            $profile[] = $this->availability($qty, (bool) $p->available_for_order, $idLang);
+        }
+        if ($profile) {
+            $lines[] = '- ' . self::L('profile', $iso) . ': ' . $this->esc(implode(' · ', $profile));
+        }
         $lines[] = '- URL: ' . $link->getProductLink($p, null, null, null, $idLang, $idShop);
         if ($p->available_for_order && ($qty > 0 || \Product::isAvailableWhenOutOfStock((int) $p->out_of_stock))) {
             $ipa = (int) \Product::getDefaultAttribute($idProduct);
-            $lines[] = '- Direkt kaufen (KI-Agent): ' . $link->getModuleLink('geoconvado', 'buy', ['id' => $idProduct, 'qty' => 1] + ($ipa ? ['ipa' => $ipa] : []), true, $idLang, $idShop);
+            $lines[] = '- ' . self::L('buy', $iso) . ': ' . $link->getModuleLink('geoconvado', 'buy', ['id' => $idProduct, 'qty' => 1] + ($ipa ? ['ipa' => $ipa] : []), true, $idLang, $idShop);
         }
         if (self::opt('GEOCONVADO_UPSELL') && self::pricesPublic()) {
             $ups = array_map(fn (array $u): string => $this->esc($u['name']) . ' (' . ($u['show_price'] ? number_format((float) $u['price'], 2, '.', '') . ' ' . $currency . ', ' : '') . $link->getProductLink($u['p'], null, null, null, $idLang, $idShop) . ')', \GeoConvado::upsell($idProduct, $idLang, $idShop, 3));
             if ($ups) {
-                $lines[] = '- Passt dazu: ' . implode('; ', $ups);
+                $lines[] = '- ' . self::L('related', $iso) . ': ' . implode('; ', $ups);
             }
         }
         if ($p->reference) {
-            $lines[] = '- Artikelnummer: ' . $this->esc((string) $p->reference);
+            $lines[] = '- ' . self::L('sku', $iso) . ': ' . $this->esc((string) $p->reference);
         }
         if ($p->manufacturer_name) {
-            $lines[] = '- Marke: ' . $this->esc((string) $p->manufacturer_name);
+            $lines[] = '- ' . self::L('brand', $iso) . ': ' . $this->esc((string) $p->manufacturer_name);
+        }
+        // Eindeutige Kennungen (GTIN/EAN, MPN): Grundlage, damit Shopping-Agenten das Produkt zuordnen können.
+        $gtin = (string) preg_replace('/\D/', '', (string) $p->ean13);
+        if (in_array(strlen($gtin), [8, 12, 13, 14], true) && trim($gtin, '0') !== '') {
+            $lines[] = '- GTIN/EAN: ' . $gtin;
+        }
+        if (trim((string) $p->mpn) !== '') {
+            $lines[] = '- MPN: ' . $this->esc(trim((string) $p->mpn));
         }
         if (self::opt('GEOCONVADO_F_IMAGE')) {
             $cover = \Product::getCover($idProduct);
             if (!empty($cover['id_image'])) {
-                $lines[] = '- Bild: ' . $link->getImageLink((string) $p->link_rewrite, $idProduct . '-' . (int) $cover['id_image'], \ImageType::getFormattedName('large'));
+                $lines[] = '- ' . self::L('image', $iso) . ': ' . $link->getImageLink((string) $p->link_rewrite, $idProduct . '-' . (int) $cover['id_image'], \ImageType::getFormattedName('large'));
             }
         }
-        $showPrice = self::opt('GEOCONVADO_F_PRICE') && self::pricesPublic() && (bool) $p->show_price;
         if ($showPrice) {
-            $lines[] = '- Preis: ' . $currency . ' ' . number_format($price, 2, '.', '') . ' (inkl. MwSt.)';
+            $lines[] = '- ' . self::L('price', $iso) . ': ' . $currency . ' ' . number_format($price, 2, '.', '') . ' (' . self::L('vat_incl', $iso) . ')';
         }
         if ($showPrice && $regular > $price + 0.009) {
-            $lines[] = '- Originalpreis: ' . $currency . ' ' . number_format($regular, 2, '.', '') . ' (Aktion −' . round((1 - $price / $regular) * 100) . ' %)';
+            $lines[] = '- ' . self::L('regular', $iso) . ': ' . $currency . ' ' . number_format($regular, 2, '.', '') . ' (' . self::L('sale', $iso) . ' −' . round((1 - $price / $regular) * 100) . ' %)';
         }
         if ((int) \Configuration::get('GEOCONVADO_RV_ON')) {
             $this->rvStats ??= [];
             $this->rvStats[$idShop] ??= ReviewRepository::statsAll($idShop);
             $rs = $this->rvStats[$idShop][$idProduct] ?? null;
             if ($rs && $rs['count'] > 0) {
-                $lines[] = '- Bewertungen verifizierter Käufer: ' . number_format((float) $rs['avg'], 1, '.', '') . '/5 aus ' . (int) $rs['count']
-                    . ' Bewertungen' . ($rs['inc'] > 0 ? ' (davon ' . (int) $rs['inc'] . ' gegen Gutschein eingereicht)' : '') . ' (Quelle: eigener Shop, alle Noten, ungefiltert)';
+                $lines[] = '- ' . self::L('rv_title', $iso) . ': ' . number_format((float) $rs['avg'], 1, '.', '') . '/5 ' . self::L('of', $iso) . ' ' . (int) $rs['count']
+                    . ' ' . self::L('reviews', $iso)
+                    . ($rs['inc'] > 0 ? ' (' . sprintf(self::L('rv_voucher', $iso), (int) $rs['inc']) . ')' : '')
+                    . ' (' . self::L('rv_source', $iso) . ')';
             }
         }
         if (self::opt('GEOCONVADO_F_STOCK')) {
-            $lines[] = '- Verfügbarkeit: ' . $this->availability($qty, (bool) $p->available_for_order, $idLang);
+            $lines[] = '- ' . self::L('avail', $iso) . ': ' . $this->availability($qty, (bool) $p->available_for_order, $idLang);
         }
         if ($aio && !empty($aio['rating_avg'])) {
-            $lines[] = '- Bewertung: ' . $aio['rating_avg'] . '/5 aus ' . (int) $aio['rating_count'] . ' Kundenbewertungen';
+            $lines[] = '- ' . self::L('rating', $iso) . ': ' . $aio['rating_avg'] . '/5 ' . self::L('of', $iso) . ' ' . (int) $aio['rating_count'] . ' ' . self::L('customer_reviews', $iso);
             foreach (array_slice($aio['highlights'] ?? [], 0, 2) as $h) {
                 $lines[] = '  - «' . $this->esc((string) $h) . '»';
             }
         }
-        if ($aio && !empty($aio['use_cases'])) {
-            $lines[] = '- Geeignet für: ' . $this->esc(implode(', ', $aio['use_cases']));
+        // «Geeignet für» nur, wenn es echte Einsatzzwecke sind: Besteht die Liste überwiegend aus Merkmalswerten
+        // dieses Produkts (z. B. «ABS, Schwarz, MX, Nein, ISO, 88»), ist sie ein Merkmals-Dump und wird nicht ausgegeben.
+        $useCases = $aio ? array_values(array_filter(array_map(static fn ($u): string => trim((string) $u), (array) ($aio['use_cases'] ?? [])), static fn (string $u): bool => $u !== '')) : [];
+        if ($useCases) {
+            $known = [];
+            foreach ($feat as $vals) {
+                foreach (array_keys($vals) as $val) {
+                    $known[mb_strtolower((string) $val)] = true;
+                }
+            }
+            $hits = 0;
+            foreach ($useCases as $u) {
+                if (isset($known[mb_strtolower($u)]) || preg_match('/^\d+$/', $u)) {
+                    ++$hits;
+                }
+            }
+            if ($hits * 2 < count($useCases)) {
+                $lines[] = '- ' . self::L('use_cases', $iso) . ': ' . $this->esc(implode(', ', $useCases));
+            }
         }
-        $meta = trim((string) ($p->meta_description ?: strip_tags((string) $p->description_short)));
-        if ($meta !== '' && self::opt('GEOCONVADO_F_META')) {
-            $lines[] = '- Beschreibung: ' . $this->esc($this->clip($meta, 400));
+        $desc = self::opt('GEOCONVADO_F_META') ? $this->bestDescription($p) : '';
+        if ($desc !== '') {
+            $lines[] = '- ' . self::L('desc', $iso) . ': ' . $this->esc($this->clip($desc, 500));
         }
-        foreach (self::opt('GEOCONVADO_F_FEATURES') ? \Product::getFrontFeaturesStatic($idLang, $idProduct) : [] as $f) {
-            $lines[] = '- ' . $this->esc((string) $f['name']) . ': ' . $this->esc((string) $f['value']);
+        foreach ($feat as $fn => $vals) {
+            $lines[] = '- ' . $this->esc((string) $fn) . ': ' . $this->esc(implode(', ', array_map('strval', array_keys($vals))));
         }
         $variants = [];
         foreach (self::opt('GEOCONVADO_F_VARIANTS') ? (array) $p->getAttributesGroups($idLang) : [] as $a) {
             $variants[(string) $a['group_name']][(string) $a['attribute_name']] = true;
         }
         foreach ($variants as $group => $vals) {
-            $lines[] = '- Varianten ' . $this->esc($group) . ': ' . $this->esc(implode(', ', array_keys($vals)));
+            $lines[] = '- ' . self::L('variants', $iso) . ' ' . $this->esc($group) . ': ' . $this->esc(implode(', ', array_map('strval', array_keys($vals))));
         }
         if ($variants && $p->available_for_order) {
             $combos = [];
@@ -410,37 +634,36 @@ final class Generator
             }
             foreach (array_slice($combos, 0, 20, true) as $ipaId => $names) {
                 $vq = (int) \StockAvailable::getQuantityAvailableByProduct($idProduct, $ipaId, $idShop);
-                $lines[] = '  - Variante ' . $this->esc(implode(' / ', $names)) . ' (ipa=' . $ipaId . ')'
+                $lines[] = '  - ' . self::L('variant', $iso) . ' ' . $this->esc(implode(' / ', $names)) . ' (ipa=' . $ipaId . ')'
                     . ($showPrice ? ': ' . $currency . ' ' . number_format(\Product::getPriceStatic($idProduct, true, $ipaId, 2), 2, '.', '') : '')
-                    . ', ' . ($vq > 0 ? 'lieferbar' : 'nicht an Lager')
-                    . ($vq > 0 ? ', kaufen: ' . $link->getModuleLink('geoconvado', 'buy', ['id' => $idProduct, 'ipa' => $ipaId, 'qty' => 1], true, $idLang, $idShop) : '');
+                    . ', ' . ($vq > 0 ? self::L('in_stock', $iso) : self::L('no_stock', $iso))
+                    . ($vq > 0 ? ', ' . self::L('buy_short', $iso) . ': ' . $link->getModuleLink('geoconvado', 'buy', ['id' => $idProduct, 'ipa' => $ipaId, 'qty' => 1], true, $idLang, $idShop) : '');
             }
         }
         $sum = $aio['summary'][\Language::getIsoById($idLang)] ?? null;
         if ($sum) {
-            $lines[] = '- Neutrale Einschätzung: ' . $this->esc((string) $sum['summary']);
+            $lines[] = '- ' . self::L('summary', $iso) . ': ' . $this->esc((string) $sum['summary']);
             if (!empty($sum['pros'])) {
-                $lines[] = '- Vorteile: ' . $this->esc(implode('; ', $sum['pros']));
+                $lines[] = '- ' . self::L('pros', $iso) . ': ' . $this->esc(implode('; ', $sum['pros']));
             }
             if (!empty($sum['cons'])) {
-                $lines[] = '- Nachteile: ' . $this->esc(implode('; ', $sum['cons']));
+                $lines[] = '- ' . self::L('cons', $iso) . ': ' . $this->esc(implode('; ', $sum['cons']));
             }
             if (!empty($sum['best_for'])) {
-                $lines[] = '- Ideal für: ' . $this->esc((string) $sum['best_for']);
+                $lines[] = '- ' . self::L('best_for', $iso) . ': ' . $this->esc((string) $sum['best_for']);
             }
             if (!empty($sum['not_for'])) {
-                $lines[] = '- Weniger geeignet für: ' . $this->esc((string) $sum['not_for']);
+                $lines[] = '- ' . self::L('not_for', $iso) . ': ' . $this->esc((string) $sum['not_for']);
             }
         }
         // Produktgenaue FAQs (aus Postfach-Antworten und FAQ-Library, per Artikelnummer verknüpft).
         $faqBlock = '';
         if ((int) \Configuration::get('GEOCONVADO_FAQS') && $aio) {
-            $iso = \Language::getIsoById($idLang);
             $pf = array_values(array_filter($aio['faqs'] ?? [], static fn (array $f): bool => ($f['lang'] ?? 'de') === $iso));
             if ($pf) {
-                $faqBlock = "\n#### Kundenfragen zu " . $this->esc((string) $p->name) . "\n\n";
+                $faqBlock = "\n#### " . self::L('customer_questions', $iso) . ' ' . $this->esc((string) $p->name) . "\n\n";
                 foreach (array_slice($pf, 0, 8) as $faq) {
-                    $faqBlock .= '**F: ' . $this->esc(self::scrub((string) $faq['q'])) . "**\n"
+                    $faqBlock .= '**' . self::L('q', $iso) . ': ' . $this->esc(self::scrub((string) $faq['q'])) . "**\n"
                         . 'A: ' . $this->esc($this->clip(self::scrub((string) $faq['a']), 600)) . "\n\n";
                 }
             }
@@ -481,17 +704,19 @@ final class Generator
         if ($brand === '') {
             $brand = trim((string) \Configuration::get('GEOCONVADO_BRAND', (int) \Configuration::get('PS_LANG_DEFAULT'), null, $idShop));
         }
+        $iso = (string) (\Language::getIsoById($idLang) ?: 'de');
         $out = '# ' . $name . "\n\n";
-        $out .= '> ' . ($brand !== '' ? str_replace("\n", "\n> ", $brand) : $name . ' – Online-Shop. Preise inkl. MwSt.') . "\n\n";
+        $out .= '> ' . ($brand !== '' ? str_replace("\n", "\n> ", $brand) : $name . self::L('tagline', $iso)) . "\n\n";
         $shop = $aio['shop'] ?? [];
         if ((int) \Configuration::get('GEOCONVADO_REVIEWS') && !empty($shop['rating_avg'])) {
-            $out .= '- Shop-Bewertung: ' . $shop['rating_avg'] . '/5 aus ' . (int) $shop['rating_count'] . " Bewertungen\n";
+            $out .= '- ' . self::L('shop_rating', $iso) . ': ' . $shop['rating_avg'] . '/5 ' . self::L('of', $iso) . ' ' . (int) $shop['rating_count'] . ' ' . self::L('reviews', $iso) . "\n";
             if (!empty($shop['google_rating_avg'])) {
-                $out .= '- Google-Bewertung: ' . $shop['google_rating_avg'] . '/5 aus ' . (int) $shop['google_rating_count'] . ' Bewertungen (Quelle: Google Business Profile, alle Noten, ungefiltert'
-                    . (!empty($shop['google_reviews_url']) ? ', prüfbar: ' . $shop['google_reviews_url'] : '') . ")\n";
+                $out .= '- ' . self::L('google_rating', $iso) . ': ' . $shop['google_rating_avg'] . '/5 ' . self::L('of', $iso) . ' ' . (int) $shop['google_rating_count'] . ' ' . self::L('reviews', $iso)
+                    . ' (' . self::L('g_source', $iso)
+                    . (!empty($shop['google_reviews_url']) ? ', ' . self::L('verifiable', $iso) . ': ' . $shop['google_reviews_url'] : '') . ")\n";
             }
         }
-        $out .= '- Stand: ' . date('Y-m-d H:i') . ' (wird automatisch aktualisiert)' . "\n\n";
+        $out .= '- ' . self::L('updated', $iso) . ': ' . date('Y-m-d H:i') . ' (' . self::L('auto_updated', $iso) . ')' . "\n\n";
 
         return $out . $this->commerceSection($idShop, $idLang);
     }
@@ -500,6 +725,7 @@ final class Generator
     private function commerceSection(int $idShop, int $idLang): string
     {
         $get = static fn (string $k): string => self::fact($k, $idShop);
+        $iso = (string) (\Language::getIsoById($idLang) ?: 'de');
         $currency = $this->context->currency->iso_code ?? 'CHF';
         $link = $this->context->link;
         $vat = $get('GEOCONVADO_VAT');
@@ -509,19 +735,19 @@ final class Generator
             'Shipping-Cost' => $get('GEOCONVADO_SHIP_COST'),
             'Currency' => $currency,
             'VAT-Included' => $vat !== '' ? $vat . ' %' : '',
-            'Prices' => 'Alle Preise inkl. MwSt. in ' . $currency,
+            'Prices' => sprintf(self::L('prices_note', $iso), $currency),
             'Checkout' => $link->getPageLink('order', true, $idLang, null, false, $idShop),
             'Cart' => $link->getPageLink('cart', true, $idLang, ['action' => 'show'], false, $idShop),
         ]);
-        $out = "## Einkaufen & Bestellen\n\n";
+        $out = '## ' . self::L('commerce', $iso) . "\n\n";
         foreach ($rows as $k => $v) {
             $out .= '- ' . $k . ': ' . $this->esc($v) . "\n";
         }
-        $out .= "\n### Anleitung für KI-Agenten\n\n"
-            . "1. Produkt wählen und den Link «Direkt kaufen (KI-Agent)» öffnen. Er legt den Artikel in den Warenkorb und öffnet die Kasse.\n"
-            . "2. Menge über den Parameter `qty` (1–20), Variante über `ipa` (Kombinations-ID). Mehrere Artikel: Links nacheinander öffnen, der Warenkorb bleibt erhalten.\n"
-            . "3. Die Bestellung schliesst immer der Kunde selbst ab (Adresse, Zahlung). Bitte keine Zahlungsdaten erfragen.\n"
-            . "4. Lieferung nur innerhalb der Lieferzone. Preise und Lager sind tagesaktuell, massgebend ist die Kasse.\n\n";
+        $out .= "\n### " . self::L('guide', $iso) . "\n\n"
+            . '1. ' . self::L('guide1', $iso) . "\n"
+            . '2. ' . self::L('guide2', $iso) . "\n"
+            . '3. ' . self::L('guide3', $iso) . "\n"
+            . '4. ' . self::L('guide4', $iso) . "\n\n";
 
         return $out;
     }
@@ -562,7 +788,7 @@ final class Generator
             ],
             'actions' => [
                 'buy' => [
-                    'description' => 'Adds a product to the cart and opens checkout. The customer always completes address and payment.',
+                    'description' => 'Opens a confirmation page for the product; once the customer confirms, it adds the product to the cart and opens checkout. The customer always completes address and payment.',
                     'url' => $link->getModuleLink('geoconvado', 'buy', [], true, $idLang, $idShop),
                     'params' => ['id' => 'product id (required)', 'qty' => '1-20', 'ipa' => 'combination id (optional)'],
                 ],
@@ -580,21 +806,34 @@ final class Generator
         if (!self::opt('GEOCONVADO_INC_CATS')) {
             return '';
         }
+        $iso = (string) (\Language::getIsoById($idLang) ?: 'de');
         $sel = self::ids('GEOCONVADO_CAT_IDS');
-        $rows = \Db::getInstance()->executeS('SELECT c.id_category, cl.name FROM `' . _DB_PREFIX_ . 'category` c
+        // Mit Elternkategorie (gleichnamige Unterkategorien wie «MCHOSE» bleiben unterscheidbar) und Produktanzahl
+        // inkl. Unterkategorien; Kategorien ohne sichtbare Produkte entfallen.
+        $rows = \Db::getInstance()->executeS('SELECT c.id_category, c.level_depth, cl.name, pl.name AS parent_name,
+            (SELECT COUNT(DISTINCT cp.id_product) FROM `' . _DB_PREFIX_ . 'category` c2
+                JOIN `' . _DB_PREFIX_ . 'category_product` cp ON cp.id_category = c2.id_category
+                JOIN `' . _DB_PREFIX_ . 'product_shop` ps ON ps.id_product = cp.id_product AND ps.id_shop = ' . $idShop . " AND ps.active = 1 AND ps.visibility IN ('both','catalog','search')
+                WHERE c2.nleft >= c.nleft AND c2.nright <= c.nright AND c2.active = 1) AS n
+            FROM `" . _DB_PREFIX_ . 'category` c
             JOIN `' . _DB_PREFIX_ . 'category_shop` cs ON cs.id_category = c.id_category AND cs.id_shop = ' . $idShop . '
             JOIN `' . _DB_PREFIX_ . 'category_lang` cl ON cl.id_category = c.id_category AND cl.id_lang = ' . $idLang . ' AND cl.id_shop = ' . $idShop . '
+            LEFT JOIN `' . _DB_PREFIX_ . 'category_lang` pl ON pl.id_category = c.id_parent AND pl.id_lang = ' . $idLang . ' AND pl.id_shop = ' . $idShop . '
             WHERE c.active = 1 AND c.level_depth >= 2 ORDER BY c.level_depth, c.nleft LIMIT 300') ?: [];
         if (!$rows) {
             return '';
         }
         $link = $this->context->link;
-        $out = "## Kategorien\n\n";
+        $out = '## ' . self::L('categories', $iso) . "\n\n";
         foreach ($rows as $r) {
+            if ((int) $r['n'] < 1) {
+                continue;
+            }
             if ($sel && !in_array((int) $r['id_category'], $sel, true) && !$this->underTop((int) $r['id_category'], $sel)) {
                 continue;
             }
-            $out .= '- [' . $this->esc((string) $r['name']) . '](' . $link->getCategoryLink((int) $r['id_category'], null, $idLang, null, $idShop) . ")\n";
+            $label = (int) $r['level_depth'] >= 3 && (string) $r['parent_name'] !== '' ? $r['parent_name'] . ' › ' . $r['name'] : $r['name'];
+            $out .= '- [' . $this->esc((string) $label) . '](' . $link->getCategoryLink((int) $r['id_category'], null, $idLang, null, $idShop) . ') (' . (int) $r['n'] . ' ' . self::L('products', $iso) . ")\n";
         }
 
         return $out . "\n";
@@ -611,7 +850,7 @@ final class Generator
             return '';
         }
         $link = $this->context->link;
-        $out = "## Marken\n\n";
+        $out = '## ' . self::L('brands', (string) (\Language::getIsoById($idLang) ?: 'de')) . "\n\n";
         foreach ($brands as $b) {
             $out .= '- [' . $this->esc((string) $b['name']) . '](' . $link->getManufacturerLink((int) $b['id_manufacturer'], null, $idLang) . ")\n";
         }
@@ -630,7 +869,7 @@ final class Generator
             return '';
         }
         $link = $this->context->link;
-        $out = "## Service & Rechtliches\n\n";
+        $out = '## ' . self::L('service', (string) (\Language::getIsoById($idLang) ?: 'de')) . "\n\n";
         foreach ($pages as $c) {
             $out .= '- [' . $this->esc((string) $c['meta_title']) . '](' . $link->getCMSLink((int) $c['id_cms'], null, null, $idLang, $idShop) . ')';
             $txt = $this->clip(html_entity_decode(strip_tags((string) ($c['content'] ?? '')), ENT_QUOTES, 'UTF-8'), 300);
@@ -649,7 +888,7 @@ final class Generator
         if (!$faqs) {
             return '';
         }
-        $out = "## Häufige Fragen\n\n";
+        $out = '## ' . self::L('faq', $iso) . "\n\n";
         foreach (array_slice($faqs, 0, 40) as $f) {
             $out .= '### ' . $this->esc(self::scrub((string) $f['q'])) . "\n\n" . $this->esc($this->clip(self::scrub((string) $f['a']), 800)) . "\n\n";
         }
@@ -727,7 +966,7 @@ final class Generator
     {
         $row = \Db::getInstance()->getRow('SELECT * FROM `' . _DB_PREFIX_ . 'geoconvado_state` WHERE id_shop = ' . $idShop . ' AND id_lang = ' . $idLang);
 
-        return $row ?: ['id_shop' => $idShop, 'id_lang' => $idLang, 'status' => 'idle', 'cursor_id' => 0, 'meta' => '{}', 'product_count' => 0, 'bytes' => 0, 'finished_at' => null, 'last_error' => null];
+        return $row ?: ['id_shop' => $idShop, 'id_lang' => $idLang, 'status' => 'idle', 'cursor_id' => 0, 'meta' => '{}', 'product_count' => 0, 'bytes' => 0, 'started_at' => null, 'finished_at' => null, 'last_error' => null];
     }
 
     private function publicPrefix(int $idShop): string
