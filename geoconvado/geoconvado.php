@@ -98,7 +98,7 @@ class GeoConvado extends Module
     {
         $this->name = 'geoconvado';
         $this->tab = 'seo';
-        $this->version = '1.8.1';
+        $this->version = '1.9.0';
         $this->author = 'Convado AG';
         $this->need_instance = 0;
         $this->bootstrap = true;
@@ -513,16 +513,12 @@ class GeoConvado extends Module
         if (!(int) Configuration::get(self::CFG_W_REVIEWS) || empty($shop['google_rating_avg'])) {
             return '';
         }
-        $quotes = [];
-        foreach ($shop['google_reviews'] ?? [] as $r) {
-            if ((int) ($r['rating'] ?? 0) >= 5 && mb_strlen((string) ($r['text'] ?? '')) >= 40) {
-                $quotes[] = ['text' => mb_strimwidth((string) $r['text'], 0, 140, '…'), 'author' => (string) ($r['author'] ?? '')];
-                if (count($quotes) >= 5) {
-                    break;
-                }
-            }
-        }
         $iso = (string) $this->context->language->iso_code;
+        // Zitate: zuerst die lokal synchronisierten Rezensionen von «AF Google Reviews» (falls installiert), sonst Convado AIO.
+        $quotes = self::pickQuotes(self::localGoogleRows(), $iso, 5);
+        if (!$quotes) {
+            $quotes = self::pickQuotes(array_map(static fn (array $r): array => ['author_name' => (string) ($r['author'] ?? ''), 'text' => (string) ($r['text'] ?? ''), 'rating' => (int) ($r['rating'] ?? 0), 'language' => ''], (array) ($shop['google_reviews'] ?? [])), $iso, 5);
+        }
         $avg = (float) $shop['google_rating_avg'];
         $label = match ($iso) {
             'fr' => 'avis Google', 'it' => 'recensioni Google', 'en' => 'Google reviews', default => 'Google-Bewertungen',
@@ -533,6 +529,60 @@ class GeoConvado extends Module
         $this->context->smarty->assign(['geo_g_scope' => $scope, 'geo_stars' => self::stars($avg), 'geo_g_label' => $label, 'geo_g' => $this->safeShop($shop), 'geo_quotes' => $quotes, 'geo_rot' => count($quotes) > 1 ? ' geo-proof--rot geo-n' . count($quotes) : '']);
 
         return $this->fetch('module:geoconvado/views/templates/hook/reviews_badge.tpl');
+    }
+
+    /**
+     * Aktive 5-Sterne-Rezensionen mit Text aus der Tabelle des Moduls «AF Google Reviews» (leer, wenn es fehlt).
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    private static function localGoogleRows(): array
+    {
+        static $rows = null;
+        if ($rows !== null) {
+            return $rows;
+        }
+        $rows = [];
+        try {
+            $table = _DB_PREFIX_ . 'af_googlereviews';
+            $db = Db::getInstance();
+            if ($db->getValue("SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = '" . pSQL($table) . "'")) {
+                $rows = $db->executeS('SELECT author_name, text, rating, language FROM `' . bqSQL($table) . '`
+                    WHERE active = 1 AND rating >= 5 AND CHAR_LENGTH(text) >= 40 ORDER BY position ASC, time DESC LIMIT 60') ?: [];
+            }
+        } catch (Throwable $e) {
+            $rows = [];
+        }
+
+        return $rows;
+    }
+
+    /**
+     * Wählt bis zu $max Zitate: erst Rezensionen in der Sprache der Seite, dann solche ohne Sprachangabe («Default»).
+     *
+     * @param array<int, array<string, mixed>> $rows
+     *
+     * @return array<int, array{text: string, author: string}>
+     */
+    public static function pickQuotes(array $rows, string $iso, int $max): array
+    {
+        $own = [];
+        $other = [];
+        foreach ($rows as $r) {
+            $text = trim((string) ($r['text'] ?? ''));
+            if ((int) ($r['rating'] ?? 0) < 5 || mb_strlen($text) < 40) {
+                continue;
+            }
+            $q = ['text' => mb_strimwidth($text, 0, 140, '…'), 'author' => trim((string) ($r['author_name'] ?? ''))];
+            $lang = strtolower(trim((string) ($r['language'] ?? '')));
+            if ($lang === strtolower($iso)) {
+                $own[] = $q;
+            } elseif ($lang === '' || $lang === 'default') {
+                $other[] = $q;
+            }
+        }
+
+        return array_slice(array_merge($own, $other), 0, $max);
     }
 
     /** Unter der Produktbeschreibung: links KI-Zusammenfassung (deklariert), rechts echte Käuferbewertungen, darunter FAQ und «Passt dazu». */
