@@ -39,6 +39,7 @@ final class Generator
 
     private const BATCH = 200;
     private const FULL_MAX_BYTES = 1572864; // 1.5 MB – darüber nur Index
+    private const SPLIT_KB = 150; // Hauptkategorien darüber werden nach Unterkategorie aufgeteilt (0 = nie)
     private const LOW_STOCK = 5;
     private const LOCK = 'geoconvado_build';
 
@@ -387,6 +388,16 @@ final class Generator
                 throw new \RuntimeException('Arbeitsordner nicht beschreibbar: ' . $dir);
             }
             fwrite($handles[$slug], $md);
+            // Zusätzlich nach Unterkategorie (Ebene 3): finalize() teilt grosse Hauptkategorien damit auf.
+            [$subSlug, $subTitle] = $this->subCategory((int) \Db::getInstance()->getValue('SELECT id_category_default FROM `' . _DB_PREFIX_ . 'product_shop` WHERE id_product = ' . $idProduct . ' AND id_shop = ' . $idShop), $idLang);
+            $meta['subs'][$slug][$subSlug] ??= ['title' => $subTitle, 'count' => 0];
+            ++$meta['subs'][$slug][$subSlug]['count'];
+            $subKey = $slug . '--' . $subSlug;
+            $handles[$subKey] ??= @fopen($dir . '/' . $subKey . '.md', 'ab');
+            if ($handles[$subKey] === false) {
+                throw new \RuntimeException('Arbeitsordner nicht beschreibbar: ' . $dir);
+            }
+            fwrite($handles[$subKey], $md);
             ++$count;
         }
         foreach ($handles as $h) {
@@ -435,6 +446,27 @@ final class Generator
             $src = $dir . '/' . $slug . '.md';
             $body = is_file($src) ? (string) file_get_contents($src) : '';
             $fullBody .= '## ' . $c['title'] . "\n\n" . $body;
+            $subs = $meta['subs'][$slug] ?? [];
+            $limit = self::opt('GEOCONVADO_SPLIT_KB', self::SPLIT_KB) * 1024;
+            if ($limit > 0 && count($subs) > 1 && strlen($body) > $limit) {
+                // Grosse Hauptkategorie: eine Datei je Unterkategorie, die Hauptkategorie-Datei wird zur Übersicht.
+                $subLinks = [];
+                foreach ($subs as $subSlug => $sub) {
+                    $subSrc = $dir . '/' . $slug . '--' . $subSlug . '.md';
+                    $subBody = is_file($subSrc) ? (string) file_get_contents($subSrc) : '';
+                    $subFile = $header . '## ' . $c['title'] . ' › ' . $sub['title'] . "\n\n" . $subBody;
+                    $subName = 'llms/' . $iso . '/' . $slug . '--' . $subSlug . '.txt';
+                    AtomicFile::write($this->outRoot() . $prefix . $subName, $subFile);
+                    $bytes += strlen($subFile);
+                    $line = '- [' . $c['title'] . ' › ' . $sub['title'] . ' (' . $sub['count'] . ' ' . self::L('products', $iso) . ')](' . $base . '/' . $prefix . $subName . ')';
+                    $subLinks[] = $line;
+                    $catLinks[] = $line;
+                }
+                $file = $header . '## ' . $c['title'] . "\n\n" . implode("\n", $subLinks) . "\n";
+                AtomicFile::write($this->outRoot() . $prefix . 'llms/' . $iso . '/' . $slug . '.txt', $file);
+                $bytes += strlen($file);
+                continue;
+            }
             $file = $header . '## ' . $c['title'] . "\n\n" . $body;
             AtomicFile::write($this->outRoot() . $prefix . 'llms/' . $iso . '/' . $slug . '.txt', $file);
             $bytes += strlen($file);
@@ -942,6 +974,27 @@ final class Generator
         $slug = \Tools::str2url($title) ?: 'weitere';
 
         return $cache[$key] = [$slug, $title, (int) $top->id];
+    }
+
+    /** Unterkategorie (Ebene 3) der Kategorie; ohne Unterkategorie «weitere». @return array{0: string, 1: string} */
+    private function subCategory(int $idCategory, int $idLang): array
+    {
+        static $cache = [];
+        $key = $idCategory . '-' . $idLang;
+        if (isset($cache[$key])) {
+            return $cache[$key];
+        }
+        $sub = null;
+        foreach ((array) (new \Category($idCategory, $idLang))->getParentsCategories($idLang) as $parent) {
+            if ((int) $parent['level_depth'] === 3) {
+                $sub = $parent;
+                break;
+            }
+        }
+        $title = $sub ? (string) $sub['name'] : '';
+        $slug = $title !== '' ? (\Tools::str2url($title) ?: 'weitere') : 'weitere';
+
+        return $cache[$key] = [$slug, $title !== '' ? $title : 'Weitere'];
     }
 
     /** Liegt die Kategorie unter einer der gewählten Hauptkategorien? */
