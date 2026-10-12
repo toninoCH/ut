@@ -87,7 +87,7 @@ class GeoConvado extends Module
     /**
      * Shop-Kontext für den CLI-Cron (cli/cron.php); der Zugriff auf das geschützte Property bleibt in der Modulklasse.
      *
-     * @return \Context
+     * @return Context
      */
     public function getShopContext()
     {
