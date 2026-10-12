@@ -51,7 +51,7 @@ $force = isset($opts['force']);
 $budget = isset($opts['budget']) ? max(5, (int) $opts['budget']) : 120;
 
 // Kontext wie bei einem anonymen Seitenaufruf (Preise, Steuern, Links stimmen dann mit dem Frontend überein).
-$ctx = Generator::cliContext();
+$ctx = Generator::prepareCliContext((new GeoConvado())->getShopContext());
 
 $start = microtime(true);
 try {

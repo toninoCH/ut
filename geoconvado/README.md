@@ -25,6 +25,7 @@ Statische Dateien (keine Serverlast für Crawler), Aufbau in Blöcken, fortsetzb
 Nur eingeloggte Käufer mit versendeter, nicht zurückgegebener Bestellung (Wartefrist einstellbar). Schutz: Formular-Token mit Zeitsperre, Honigtopf, Ratenbegrenzung, Link-/Kontaktsperre, Duplikat-Erkennung, Moderation. Optional Foto-/Videoupload (Bilder werden neu kodiert, Metadaten entfernt; Videos per ffmpeg umgewandelt), optional Gutschein nach Freigabe (klar gekennzeichnet «Gegen Gutschein eingereicht»). Ablage ausserhalb des Webroots (`var/geoconvado-media`). Aktivierung: *Konfiguration → Bewertungen*. Bewertungen bleiben bei Deinstallation erhalten, ausser die Löschoption ist gesetzt.
 
 ## Änderungen
+- 1.7.5: Validator-Konformität: Kontext im CLI-Cron ohne direkten `Context`-Aufruf (`GeoConvado::getShopContext()`), keine funktionalen Änderungen gegenüber 1.7.4.
 - 1.7.4: Kurzprofil als erste Zeile jedes Produkts (Merkmale über `GEOCONVADO_PROFILE_FEATURES`, sonst die ersten sechs), GTIN/EAN und MPN, beste Beschreibung statt Wiederholung des Titels, gleichnamige Merkmale in einer Zeile, «Geeignet für» nur bei echten Einsatzzwecken, Dateien in DE/EN/FR vollständig übersetzt, Anleitung korrigiert (Bestätigungsseite), Kategorien mit Elternkategorie und Produktanzahl, Cron per Kommandozeile (`php modules/geoconvado/cli/cron.php`), Fehler `started_at` behoben.
 - 1.7.3: PHP 8.5: veraltete Aufrufe (curl_close, imagedestroy) entfernt.
 - 1.7.2: Strukturierte Daten (FAQ, Bewertungen) wieder aus dem Template, ohne HTML im PHP-Code und ohne nofilter.

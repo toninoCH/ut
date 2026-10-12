@@ -84,11 +84,21 @@ class GeoConvado extends Module
     /** Front-Hooks seit 1.1.0. */
     public const FRONT_HOOKS = ['displayHeader', 'displayProductAdditionalInfo', 'displayFooterProduct', 'displayFooterBefore', 'moduleRoutes'];
 
+    /**
+     * Shop-Kontext für den CLI-Cron (cli/cron.php); der Zugriff auf das geschützte Property bleibt in der Modulklasse.
+     *
+     * @return \Context
+     */
+    public function getShopContext()
+    {
+        return $this->context;
+    }
+
     public function __construct()
     {
         $this->name = 'geoconvado';
         $this->tab = 'seo';
-        $this->version = '1.7.4';
+        $this->version = '1.7.5';
         $this->author = 'Convado AG';
         $this->need_instance = 0;
         $this->bootstrap = true;

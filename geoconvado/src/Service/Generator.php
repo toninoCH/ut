@@ -1060,10 +1060,15 @@ final class Generator
         return mb_strlen($s) > $n ? rtrim(mb_substr($s, 0, $n - 1)) . '…' : $s;
     }
 
-    /** Kontext wie bei einem anonymen Seitenaufruf für den CLI-Cron (Preise, Steuern, Links stimmen mit dem Frontend überein). */
-    public static function cliContext(): \Context
+    /**
+     * Ergänzt den Shop-Kontext wie bei einem anonymen Seitenaufruf für den CLI-Cron (Preise, Steuern, Links stimmen mit dem Frontend überein).
+     *
+     * @param \Context $ctx
+     *
+     * @return \Context
+     */
+    public static function prepareCliContext($ctx)
     {
-        $ctx = \Context::getContext();
         if (!\Validate::isLoadedObject($ctx->shop)) {
             $ctx->shop = new \Shop((int) \Configuration::get('PS_SHOP_DEFAULT'));
             \Shop::setContext(\Shop::CONTEXT_SHOP, (int) $ctx->shop->id);
