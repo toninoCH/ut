@@ -978,7 +978,7 @@ final class Generator
      * Veröffentlicht einen Textkörper als eine Datei. Liegt er über dem Limit, wird er an Produktgrenzen in Teile
      * «<name>-teil-N.txt» zerlegt und <name>.txt zur Übersicht mit Links auf die Teile.
      *
-     * @param string $base  Basis-Adresse des Shops
+     * @param string $base Basis-Adresse des Shops
      * @param string $prefix Pfadpräfix der Ausgabe
      *
      * @return string[] Link-Zeilen für den Index
