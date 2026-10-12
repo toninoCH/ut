@@ -41,6 +41,7 @@ final class RobotsWriter
             $block[] = 'Allow: /llms.txt';
             $block[] = 'Allow: /llms.json';
             $block[] = 'Allow: /llms-';
+            $block[] = 'Allow: /llms/';
             foreach ($rules as $r) {
                 $block[] = $r;
             }
@@ -81,7 +82,12 @@ final class RobotsWriter
     {
         $file = _PS_ROOT_DIR_ . '/robots.txt';
         if (is_file($file) && is_writable($file)) {
-            AtomicFile::write($file, rtrim($this->strip((string) file_get_contents($file))) . "\n");
+            $current = (string) file_get_contents($file);
+            $clean = rtrim($this->strip($current)) . "\n";
+            // Nur schreiben, wenn der GEO-Block tatsächlich vorhanden war (eigene robots.txt bleibt sonst unberührt).
+            if ($clean !== $current && strpos($current, self::START) !== false) {
+                AtomicFile::write($file, $clean);
+            }
         }
     }
 
