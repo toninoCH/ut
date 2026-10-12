@@ -114,7 +114,12 @@ final class Tracker
             WHERE created_at > DATE_SUB(NOW(), INTERVAL 30 DAY) AND kind IN ('page','llms')
             GROUP BY path, kind ORDER BY hits DESC LIMIT 8") ?: [];
 
+        // Letzte Abrufe (Rohdaten, 90 Tage): Zeit, KI, Art, Datei/Seite, anonymisierte IP, User-Agent.
+        $recent = $db->executeS("SELECT created_at, bot, kind, path, ip, user_agent FROM `{$p}geoconvado_bot_log`
+            WHERE kind <> 'bview' ORDER BY id DESC LIMIT 40") ?: [];
+
         return [
+            'recent' => $recent,
             'kpi' => $kpi,
             'top_bot' => $providers[0]['bot'] ?? null,
             'providers' => $providers,
