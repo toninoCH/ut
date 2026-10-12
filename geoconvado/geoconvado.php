@@ -98,7 +98,7 @@ class GeoConvado extends Module
     {
         $this->name = 'geoconvado';
         $this->tab = 'seo';
-        $this->version = '1.7.5';
+        $this->version = '1.7.6';
         $this->author = 'Convado AG';
         $this->need_instance = 0;
         $this->bootstrap = true;
@@ -513,11 +513,13 @@ class GeoConvado extends Module
         if (!(int) Configuration::get(self::CFG_W_REVIEWS) || empty($shop['google_rating_avg'])) {
             return '';
         }
-        $quote = null;
+        $quotes = [];
         foreach ($shop['google_reviews'] ?? [] as $r) {
             if ((int) ($r['rating'] ?? 0) >= 5 && mb_strlen((string) ($r['text'] ?? '')) >= 40) {
-                $quote = ['text' => mb_strimwidth((string) $r['text'], 0, 140, '…'), 'author' => (string) ($r['author'] ?? '')];
-                break;
+                $quotes[] = ['text' => mb_strimwidth((string) $r['text'], 0, 140, '…'), 'author' => (string) ($r['author'] ?? '')];
+                if (count($quotes) >= 5) {
+                    break;
+                }
             }
         }
         $iso = (string) $this->context->language->iso_code;
@@ -528,7 +530,7 @@ class GeoConvado extends Module
         $scope = match ($iso) {
             'fr' => 'Avis sur la boutique', 'it' => 'Valutazione del negozio', 'en' => 'Shop rating', default => 'Shop-Bewertung',
         };
-        $this->context->smarty->assign(['geo_g_scope' => $scope, 'geo_stars' => self::stars($avg), 'geo_g_label' => $label, 'geo_g' => $this->safeShop($shop), 'geo_quote' => $quote]);
+        $this->context->smarty->assign(['geo_g_scope' => $scope, 'geo_stars' => self::stars($avg), 'geo_g_label' => $label, 'geo_g' => $this->safeShop($shop), 'geo_quotes' => $quotes, 'geo_rot' => count($quotes) > 1 ? ' geo-proof--rot geo-n' . count($quotes) : '']);
 
         return $this->fetch('module:geoconvado/views/templates/hook/reviews_badge.tpl');
     }

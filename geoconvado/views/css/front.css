@@ -101,3 +101,18 @@
 .geo-stars-input label{font-size:2rem;line-height:1;color:rgba(0,0,0,.2);cursor:pointer}
 .geo-stars-input input:checked~label,.geo-stars-input label:hover,.geo-stars-input label:hover~label{color:#fbbc04}
 .geo-stars-input input:focus-visible+label{outline:2px solid currentColor;outline-offset:2px}
+/* Rotierende Google-Zitate (reines CSS, funktioniert auch mit Full-Page-Cache): alle 6 s ein Zitat, Pause beim Darüberfahren */
+.geo-proof__quotes{display:grid}
+.geo-proof--rot .geo-proof__quote{grid-area:1/1;opacity:0;animation-duration:calc(var(--n) * 6s);animation-iteration-count:infinite;animation-timing-function:ease-in-out;animation-delay:calc(var(--i) * 6s)}
+.geo-proof--rot:hover .geo-proof__quote{animation-play-state:paused}
+.geo-n2{--n:2}.geo-n3{--n:3}.geo-n4{--n:4}.geo-n5{--n:5}
+.geo-q1{--i:0}.geo-q2{--i:1}.geo-q3{--i:2}.geo-q4{--i:3}.geo-q5{--i:4}
+.geo-n2 .geo-proof__quote{animation-name:geo-rot2}
+.geo-n3 .geo-proof__quote{animation-name:geo-rot3}
+.geo-n4 .geo-proof__quote{animation-name:geo-rot4}
+.geo-n5 .geo-proof__quote{animation-name:geo-rot5}
+@keyframes geo-rot2{0%{opacity:0}4%,46%{opacity:1}50%,100%{opacity:0}}
+@keyframes geo-rot3{0%{opacity:0}4%,29%{opacity:1}33.3%,100%{opacity:0}}
+@keyframes geo-rot4{0%{opacity:0}4%,21%{opacity:1}25%,100%{opacity:0}}
+@keyframes geo-rot5{0%{opacity:0}4%,16%{opacity:1}20%,100%{opacity:0}}
+@media (prefers-reduced-motion:reduce){.geo-proof--rot .geo-proof__quote{animation:none;opacity:0}.geo-proof--rot .geo-q1{opacity:1}}
