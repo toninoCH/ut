@@ -63,7 +63,7 @@ class GeoConvado extends Module
         'GEOCONVADO_RV_ON', 'GEOCONVADO_RV_DAYS', 'GEOCONVADO_RV_MIN_TEXT', 'GEOCONVADO_RV_MIN_CHARS', 'GEOCONVADO_RV_PHOTO_REQ', 'GEOCONVADO_RV_VOUCHER_ON',
         'GEOCONVADO_RV_VOUCHER_AMOUNT', 'GEOCONVADO_RV_VOUCHER_DAYS', 'GEOCONVADO_RV_VOUCHER_MIN', 'GEOCONVADO_RV_VOUCHER_YEAR_MAX', 'GEOCONVADO_RV_IMG_MAX',
         'GEOCONVADO_RV_VIDEO_ON', 'GEOCONVADO_RV_VIDEO_MB', 'GEOCONVADO_RV_VIDEO_SEC', 'GEOCONVADO_RV_AUTO', 'GEOCONVADO_RV_LD', 'GEOCONVADO_RV_LD_INC',
-        'GEOCONVADO_RV_BLOCK', 'GEOCONVADO_RV_STATES', 'GEOCONVADO_RV_PURGE', 'GEOCONVADO_RV_FFMPEG', 'GEOCONVADO_RV_FFPROBE', 'GEOCONVADO_PROFILE_FEATURES'];
+        'GEOCONVADO_RV_BLOCK', 'GEOCONVADO_RV_STATES', 'GEOCONVADO_RV_PURGE', 'GEOCONVADO_RV_FFMPEG', 'GEOCONVADO_RV_FFPROBE', 'GEOCONVADO_PROFILE_FEATURES', 'GEOCONVADO_SPLIT_KB'];
 
     /** Standardwerte des Bewertungsprogramms (ab 1.7.0). Das Programm ist bis zur Aktivierung ausgeschaltet. */
     public const RV_DEFAULTS = ['GEOCONVADO_RV_ON' => 0, 'GEOCONVADO_RV_DAYS' => 5, 'GEOCONVADO_RV_MIN_TEXT' => 30, 'GEOCONVADO_RV_MIN_CHARS' => 150,
@@ -98,7 +98,7 @@ class GeoConvado extends Module
     {
         $this->name = 'geoconvado';
         $this->tab = 'seo';
-        $this->version = '1.7.8';
+        $this->version = '1.8.0';
         $this->author = 'Convado AG';
         $this->need_instance = 0;
         $this->bootstrap = true;
