@@ -51,36 +51,7 @@ $force = isset($opts['force']);
 $budget = isset($opts['budget']) ? max(5, (int) $opts['budget']) : 120;
 
 // Kontext wie bei einem anonymen Seitenaufruf (Preise, Steuern, Links stimmen dann mit dem Frontend überein).
-$ctx = (new GeoConvado())->context;
-if (!Validate::isLoadedObject($ctx->shop)) {
-    $ctx->shop = new Shop((int) Configuration::get('PS_SHOP_DEFAULT'));
-    Shop::setContext(Shop::CONTEXT_SHOP, (int) $ctx->shop->id);
-}
-if (!Validate::isLoadedObject($ctx->language)) {
-    $ctx->language = new Language((int) Configuration::get('PS_LANG_DEFAULT'));
-}
-if (!Validate::isLoadedObject($ctx->country)) {
-    $ctx->country = new Country((int) Configuration::get('PS_COUNTRY_DEFAULT'));
-}
-if (!Validate::isLoadedObject($ctx->currency)) {
-    $ctx->currency = Currency::getDefaultCurrency();
-}
-if (!$ctx->customer) {
-    $ctx->customer = new Customer();
-}
-// Links wie im Frontend: ohne HTTPS-Serverumgebung würden Bild-Links sonst mit http:// erzeugt.
-$proto = (int) Configuration::get('PS_SSL_ENABLED') ? 'https://' : 'http://';
-$ctx->link = new Link($proto, $proto);
-// Anonymer Besucher: PrestaShop legt bei jedem Seitenaufruf einen (noch nicht gespeicherten) Warenkorb an.
-// Ohne ihn verweigert die Preisberechnung (Product::getPriceStatic) die Arbeit.
-if (!is_object($ctx->cart)) {
-    $cart = new Cart();
-    $cart->id_lang = (int) $ctx->language->id;
-    $cart->id_currency = (int) $ctx->currency->id;
-    $cart->id_shop = (int) $ctx->shop->id;
-    $cart->id_shop_group = (int) $ctx->shop->id_shop_group;
-    $ctx->cart = $cart;
-}
+$ctx = Generator::cliContext();
 
 $start = microtime(true);
 try {
