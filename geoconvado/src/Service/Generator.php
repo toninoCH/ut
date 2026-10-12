@@ -531,7 +531,7 @@ final class Generator
             $profile[] = $currency . ' ' . number_format($price, 2, '.', '');
         }
         if (self::opt('GEOCONVADO_F_STOCK')) {
-            $profile[] = $this->availability($qty, (bool) $p->available_for_order, $idLang);
+            $profile[] = $this->availability($qty, $p, $idLang);
         }
         if ($profile) {
             $lines[] = '- ' . self::L('profile', $iso) . ': ' . $this->esc(implode(' · ', $profile));
@@ -585,7 +585,7 @@ final class Generator
             }
         }
         if (self::opt('GEOCONVADO_F_STOCK')) {
-            $lines[] = '- ' . self::L('avail', $iso) . ': ' . $this->availability($qty, (bool) $p->available_for_order, $idLang);
+            $lines[] = '- ' . self::L('avail', $iso) . ': ' . $this->availability($qty, $p, $idLang);
         }
         if ($aio && !empty($aio['rating_avg'])) {
             $lines[] = '- ' . self::L('rating', $iso) . ': ' . $aio['rating_avg'] . '/5 ' . self::L('of', $iso) . ' ' . (int) $aio['rating_count'] . ' ' . self::L('customer_reviews', $iso);
@@ -672,29 +672,53 @@ final class Generator
         return [$slug, $catTitle, implode("\n", $lines) . "\n" . $faqBlock . "\n"];
     }
 
-    /** Verfügbarkeit mit Schweiz-Vorteil und Knappheit. */
-    private function availability(int $qty, bool $orderable, int $idLang): string
+    /** Text eines Produktfelds in der Sprache (je nach Ladeart String oder Sprach-Array). */
+    private static function langText($value, int $idLang): string
+    {
+        if (is_array($value)) {
+            $value = $value[$idLang] ?? '';
+        }
+
+        return trim((string) preg_replace('/\s+/u', ' ', strip_tags((string) $value)));
+    }
+
+    /**
+     * Verfügbarkeit mit Lieferzeit des Produkts (Reiter «Stocks»: «Angezeigter Text wenn auf Lager» / «Label when out of stock»),
+     * Schweiz-Vorteil und Knappheit. Nicht bestellbar (Bestellungen ablehnen) = «Nicht verfügbar», ohne Datum.
+     */
+    private function availability(int $qty, $p, int $idLang): string
     {
         $iso = \Language::getIsoById($idLang);
         $t = match ($iso) {
-            'fr' => ['En stock', 'Stock faible (plus que %d)', 'Sur commande', 'Indisponible'],
-            'it' => ['Disponibile', 'Scorte limitate (solo %d)', 'Su ordinazione', 'Non disponibile'],
-            'en' => ['In stock', 'Low stock (only %d left)', 'Available on order', 'Out of stock'],
-            default => ['Auf Lager', 'Nur noch %d Stück', 'Auf Bestellung lieferbar', 'Nicht verfügbar'],
+            'fr' => ['En stock', 'Stock faible (plus que %d)', 'Sur commande', 'Indisponible', 'dès le %s'],
+            'it' => ['Disponibile', 'Scorte limitate (solo %d)', 'Su ordinazione', 'Non disponibile', 'dal %s'],
+            'en' => ['In stock', 'Low stock (only %d left)', 'Available on order', 'Out of stock', 'from %s'],
+            default => ['Auf Lager', 'Nur noch %d Stück', 'Auf Bestellung lieferbar', 'Nicht verfügbar', 'ab %s'],
         };
-        // Eigener Lagertext (z. B. «Lieferung am nächsten Werktag») nur, wenn der Händler ihn einträgt.
-        $own = trim((string) \Configuration::get('GEOCONVADO_STOCK_TEXT', $idLang));
-        if ($own !== '') {
-            $t[0] .= ' – ' . $own;
-        }
-        if ($qty > self::LOW_STOCK) {
-            return $t[0];
-        }
+        $orderable = (bool) $p->available_for_order && (\Product::isAvailableWhenOutOfStock((int) $p->out_of_stock) || $qty > 0);
+
+        // Lieferzeit des Produkts; fehlt sie, gilt der globale Lagertext (nur wenn der Händler ihn einträgt).
+        $now = self::langText($p->available_now, $idLang);
+        $own = $now !== '' ? $now : trim((string) \Configuration::get('GEOCONVADO_STOCK_TEXT', $idLang));
         if ($qty > 0) {
-            return $t[0] . ' – ' . sprintf($t[1], $qty);
+            $out = $own !== '' ? $t[0] . ' – ' . $own : $t[0];
+
+            return $qty > self::LOW_STOCK ? $out : $out . ' – ' . sprintf($t[1], $qty);
+        }
+        if (!$orderable) {
+            return $t[3];
+        }
+        $out = $t[2];
+        $later = self::langText($p->available_later, $idLang);
+        $date = (string) $p->available_date;
+        if ($later !== '') {
+            $out .= ' – ' . rtrim($later, " :");
+        }
+        if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $date) && $date > date('Y-m-d')) {
+            $out .= ' (' . sprintf($t[4], date('d.m.Y', (int) strtotime($date))) . ')';
         }
 
-        return $orderable ? $t[2] : $t[3];
+        return $out;
     }
 
     private function header(int $idShop, int $idLang, array $aio): string
