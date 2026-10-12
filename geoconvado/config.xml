@@ -2,7 +2,7 @@
 <module>
     <name>geoconvado</name>
     <displayName><![CDATA[GEO.Convado]]></displayName>
-    <version><![CDATA[1.10.1]]></version>
+    <version><![CDATA[1.10.2]]></version>
     <description><![CDATA[Makes your shop the first choice of ChatGPT, Claude, Perplexity and Gemini: full catalog as llms.txt in all languages with reviews, product FAQs, shipping and payment info and agent checkout links. Shows a neutral AI assessment (pros and cons) and your Google reviews on the product page.]]></description>
     <author><![CDATA[Convado AG]]></author>
     <tab><![CDATA[seo]]></tab>
