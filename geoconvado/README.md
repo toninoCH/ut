@@ -25,6 +25,7 @@ Statische Dateien (keine Serverlast für Crawler), Aufbau in Blöcken, fortsetzb
 Nur eingeloggte Käufer mit versendeter, nicht zurückgegebener Bestellung (Wartefrist einstellbar). Schutz: Formular-Token mit Zeitsperre, Honigtopf, Ratenbegrenzung, Link-/Kontaktsperre, Duplikat-Erkennung, Moderation. Optional Foto-/Videoupload (Bilder werden neu kodiert, Metadaten entfernt; Videos per ffmpeg umgewandelt), optional Gutschein nach Freigabe (klar gekennzeichnet «Gegen Gutschein eingereicht»). Ablage ausserhalb des Webroots (`var/geoconvado-media`). Aktivierung: *Konfiguration → Bewertungen*. Bewertungen bleiben bei Deinstallation erhalten, ausser die Löschoption ist gesetzt.
 
 ## Änderungen
+- 1.8.1: Coding-Standard (single_quote in Generator.php), keine funktionalen Änderungen.
 - 1.8.0: Hauptkategorien über 150 KB (Einstellung `GEOCONVADO_SPLIT_KB`, 0 = nie) werden in eine Datei je Unterkategorie aufgeteilt (`llms/<sprache>/<haupt>--<unter>.txt`); die Hauptkategorie-Datei wird zur Übersicht, der Sprach-Index verlinkt die Unterkategorien. Zuordnung über die Standardkategorie des Produkts.
 - 1.7.8: Analyse: neue Tabelle «Letzte Abrufe» (Zeit, KI, Art, Datei bzw. Seite, anonymisierte IP, User-Agent; letzte 40, nur Lesezugriff).
 - 1.7.7: Lieferzeit pro Produkt in llms.txt (Text «wenn auf Lager» bzw. «Label when out of stock» samt Verfügbarkeitsdatum). Fehler behoben: Produkte ohne Lager und ohne Nachbestellung («Bestellungen ablehnen») wurden als «Auf Bestellung lieferbar» gemeldet, jetzt «Nicht verfügbar».
