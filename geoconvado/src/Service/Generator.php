@@ -79,6 +79,7 @@ final class Generator
             'regular' => ['de' => 'Originalpreis', 'en' => 'Original price', 'fr' => 'Prix d’origine'],
             'sale' => ['de' => 'Aktion', 'en' => 'sale', 'fr' => 'promotion'],
             'avail' => ['de' => 'Verfügbarkeit', 'en' => 'Availability', 'fr' => 'Disponibilité'],
+            'part_of' => ['de' => 'Teil %d von %d', 'en' => 'Part %d of %d', 'fr' => 'Partie %d sur %d'],
             'desc' => ['de' => 'Beschreibung', 'en' => 'Description', 'fr' => 'Description'],
             'variants' => ['de' => 'Varianten', 'en' => 'Variants', 'fr' => 'Variantes'],
             'variant' => ['de' => 'Variante', 'en' => 'Variant', 'fr' => 'Variante'],
@@ -448,29 +449,26 @@ final class Generator
             $fullBody .= '## ' . $c['title'] . "\n\n" . $body;
             $subs = $meta['subs'][$slug] ?? [];
             $limit = self::opt('GEOCONVADO_SPLIT_KB', self::SPLIT_KB) * 1024;
+            $name = 'llms/' . $iso . '/' . $slug;
             if ($limit > 0 && count($subs) > 1 && strlen($body) > $limit) {
                 // Grosse Hauptkategorie: eine Datei je Unterkategorie, die Hauptkategorie-Datei wird zur Übersicht.
                 $subLinks = [];
                 foreach ($subs as $subSlug => $sub) {
                     $subSrc = $dir . '/' . $slug . '--' . $subSlug . '.md';
                     $subBody = is_file($subSrc) ? (string) file_get_contents($subSrc) : '';
-                    $subFile = $header . '## ' . $c['title'] . ' › ' . $sub['title'] . "\n\n" . $subBody;
-                    $subName = 'llms/' . $iso . '/' . $slug . '--' . $subSlug . '.txt';
-                    AtomicFile::write($this->outRoot() . $prefix . $subName, $subFile);
-                    $bytes += strlen($subFile);
-                    $line = '- [' . $c['title'] . ' › ' . $sub['title'] . ' (' . $sub['count'] . ' ' . self::L('products', $iso) . ')](' . $base . '/' . $prefix . $subName . ')';
-                    $subLinks[] = $line;
-                    $catLinks[] = $line;
+                    foreach ($this->publishBody($header, $c['title'] . ' › ' . $sub['title'], $subBody, (int) $sub['count'], $name . '--' . $subSlug, $iso, $base, $prefix, $limit, $bytes) as $line) {
+                        $subLinks[] = $line;
+                        $catLinks[] = $line;
+                    }
                 }
                 $file = $header . '## ' . $c['title'] . "\n\n" . implode("\n", $subLinks) . "\n";
-                AtomicFile::write($this->outRoot() . $prefix . 'llms/' . $iso . '/' . $slug . '.txt', $file);
+                AtomicFile::write($this->outRoot() . $prefix . $name . '.txt', $file);
                 $bytes += strlen($file);
                 continue;
             }
-            $file = $header . '## ' . $c['title'] . "\n\n" . $body;
-            AtomicFile::write($this->outRoot() . $prefix . 'llms/' . $iso . '/' . $slug . '.txt', $file);
-            $bytes += strlen($file);
-            $catLinks[] = '- [' . $c['title'] . ' (' . $c['count'] . ' ' . self::L('products', $iso) . ')](' . $base . '/' . $prefix . 'llms/' . $iso . '/' . $slug . '.txt)';
+            foreach ($this->publishBody($header, $c['title'], $body, (int) $c['count'], $name, $iso, $base, $prefix, $limit, $bytes) as $line) {
+                $catLinks[] = $line;
+            }
         }
 
         // 2) Sprach-Index
@@ -974,6 +972,56 @@ final class Generator
         $slug = \Tools::str2url($title) ?: 'weitere';
 
         return $cache[$key] = [$slug, $title, (int) $top->id];
+    }
+
+    /**
+     * Veröffentlicht einen Textkörper als eine Datei. Liegt er über dem Limit, wird er an Produktgrenzen in Teile
+     * «<name>-teil-N.txt» zerlegt und <name>.txt zur Übersicht mit Links auf die Teile.
+     *
+     * @param string $base  Basis-Adresse des Shops
+     * @param string $prefix Pfadpräfix der Ausgabe
+     *
+     * @return string[] Link-Zeilen für den Index
+     */
+    private function publishBody(string $header, string $title, string $body, int $count, string $name, string $iso, string $base, string $prefix, int $limit, int &$bytes): array
+    {
+        $products = self::L('products', $iso);
+        $parts = [];
+        if ($limit > 0 && strlen($body) > $limit) {
+            $cur = '';
+            foreach (preg_split('/(?=^### )/m', $body, -1, PREG_SPLIT_NO_EMPTY) ?: [$body] as $block) {
+                if ($cur !== '' && strlen($cur) + strlen($block) > $limit) {
+                    $parts[] = $cur;
+                    $cur = '';
+                }
+                $cur .= $block;
+            }
+            if ($cur !== '') {
+                $parts[] = $cur;
+            }
+        }
+        if (count($parts) < 2) {
+            $file = $header . '## ' . $title . "\n\n" . $body;
+            AtomicFile::write($this->outRoot() . $prefix . $name . '.txt', $file);
+            $bytes += strlen($file);
+
+            return ['- [' . $title . ' (' . $count . ' ' . $products . ')](' . $base . '/' . $prefix . $name . '.txt)'];
+        }
+        $links = [];
+        $total = count($parts);
+        foreach ($parts as $i => $part) {
+            $label = sprintf(self::L('part_of', $iso), $i + 1, $total);
+            $partName = $name . '-teil-' . ($i + 1);
+            $file = $header . '## ' . $title . ' – ' . $label . "\n\n" . $part;
+            AtomicFile::write($this->outRoot() . $prefix . $partName . '.txt', $file);
+            $bytes += strlen($file);
+            $links[] = '- [' . $title . ' – ' . $label . ' (' . preg_match_all('/^### /m', $part) . ' ' . $products . ')](' . $base . '/' . $prefix . $partName . '.txt)';
+        }
+        $overview = $header . '## ' . $title . "\n\n" . implode("\n", $links) . "\n";
+        AtomicFile::write($this->outRoot() . $prefix . $name . '.txt', $overview);
+        $bytes += strlen($overview);
+
+        return $links;
     }
 
     /** Unterkategorie (Ebene 3) der Kategorie; ohne Unterkategorie «weitere». @return array{0: string, 1: string} */
