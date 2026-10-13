@@ -926,7 +926,8 @@ final class Generator
         $out = '## ' . self::L('service', (string) (\Language::getIsoById($idLang) ?: 'de')) . "\n\n";
         foreach ($pages as $c) {
             $out .= '- [' . $this->esc((string) $c['meta_title']) . '](' . $link->getCMSLink((int) $c['id_cms'], null, null, $idLang, $idShop) . ')';
-            $txt = $this->clip(html_entity_decode(strip_tags((string) ($c['content'] ?? '')), ENT_QUOTES, 'UTF-8'), 300);
+            $html = (string) preg_replace('#</(p|li|div|h[1-6]|tr)>|<br\s*/?>#i', ' ', (string) ($c['content'] ?? ''));
+            $txt = $this->clip(html_entity_decode(strip_tags($html), ENT_QUOTES, 'UTF-8'), 300);
             $out .= ($txt !== '' ? ': ' . $this->esc($txt) : '') . "\n";
         }
 

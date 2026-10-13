@@ -90,6 +90,15 @@ class ConfigController extends PrestaShopAdminController
             \Configuration::updateValue('GEOCONVADO_REVIEWS', $request->request->get('reviews') ? 1 : 0);
             \Configuration::updateValue('GEOCONVADO_FAQS', $request->request->get('faqs') ? 1 : 0);
             \Configuration::updateValue('GEOCONVADO_ROBOTS', $request->request->get('robots') ? 1 : 0);
+            // Sofort schreiben, nicht erst beim nächsten Generierungslauf (sonst fehlt der Block bis zum Cron).
+            $robotsWriter = new RobotsWriter();
+            if ($request->request->get('robots')) {
+                if (!$robotsWriter->ensure(\Tools::getShopDomainSsl(true) . __PS_BASE_URI__)) {
+                    $this->addFlash('warning', 'robots.txt ist nicht beschreibbar. Block aus dem Reiter «KI-Zugriff» manuell einfügen.');
+                }
+            } else {
+                $robotsWriter->remove();
+            }
             foreach (['payments' => 'GEOCONVADO_PAYMENTS', 'ship_zone' => 'GEOCONVADO_SHIP_ZONE', 'ship_cost' => 'GEOCONVADO_SHIP_COST', 'vat' => 'GEOCONVADO_VAT'] as $f => $k) {
                 \Configuration::updateValue($k, trim(strip_tags((string) $request->request->get($f, ''))));
             }
@@ -178,6 +187,10 @@ class ConfigController extends PrestaShopAdminController
             ['label' => 'Marken', 'in' => $switches['inc_brands'] ? ($selBrands ? count($selBrands) : count($brandsAll)) : 0, 'all' => count($brandsAll)],
         ];
         $cronUrl = $module->getCronUrl();
+        $cronFull = $cronUrl . (str_contains($cronUrl, '?') ? '&' : '?') . 'force=1';
+        $cli = 'php ' . _PS_ROOT_DIR_ . '/modules/geoconvado/cli/cron.php';
+        $cronCli = '*/10 * * * * ' . $cli . ' >/dev/null 2>&1' . "\n" . '45 3 * * * ' . $cli . ' --force >/dev/null 2>&1';
+        $cronCurl = '*/10 * * * * curl -s -m 120 "' . $cronUrl . '" >/dev/null 2>&1' . "\n" . '45 3 * * * curl -s -m 300 "' . $cronFull . '" >/dev/null 2>&1';
         $providers = [];
         $allowed = BotDetector::allowedProviders();
         foreach (BotDetector::PROVIDERS as $k => [$label, $agents]) {
@@ -218,6 +231,8 @@ class ConfigController extends PrestaShopAdminController
             'bots' => $bots,
             'cron_url' => $cronUrl,
             'cron_full_url' => $cronUrl . (str_contains($cronUrl, '?') ? '&' : '?') . 'force=1',
+            'cron_cli_lines' => $cronCli,
+            'cron_curl_lines' => $cronCurl,
             'tab' => (string) $request->query->get('tab', 'dashboard'),
             'custom' => $customValues,
             'stock_text' => $stockValues,

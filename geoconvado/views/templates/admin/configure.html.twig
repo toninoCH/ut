@@ -342,11 +342,12 @@
     <section class="gc-card">
       <h2 class="gc-h2"><span class="gc-num {{ steps[3].ok ? 'is-ok' }}">⏱</span> Automatische Aktualisierung</h2>
       {{ ui.sw('cron_on', sw.cron_on, 'Cron aktiv', 'Aus = die Adressen antworten ohne etwas zu tun.') }}
-      <label class="gc-label">Alle 10 Minuten – Lager, Preise und Änderungen <small class="gc-muted">(ohne Änderungen kehrt der Aufruf sofort zurück)</small></label>
-      <div class="gc-copy"><input type="text" class="form-control" readonly value="{{ cron_url }}" id="gc-cron1"><button type="button" class="gc-btn" data-copy="gc-cron1">Kopieren</button></div>
-      <label class="gc-label">Täglich 03:45 – kompletter Neuaufbau</label>
-      <div class="gc-copy"><input type="text" class="form-control" readonly value="{{ cron_full_url }}" id="gc-cron2"><button type="button" class="gc-btn" data-copy="gc-cron2">Kopieren</button></div>
-      <p class="gc-muted">Eintragen im Hosting-Cronjob (z.B. <code>curl -s "URL"</code>) oder im Modul «Cron tasks manager». Letzter Lauf: {{ last_cron ?: 'noch nie' }}.</p>
+      <label class="gc-label">Empfohlen: Kommandozeile <small class="gc-muted">(kein HTTP, kein Token, Cloudflare und Wartungsmodus spielen keine Rolle)</small></label>
+      <p class="gc-muted">Alle 10 Minuten: Lager, Preise und Änderungen (ohne Änderungen kehrt der Aufruf sofort zurück). Täglich 03:45: kompletter Neuaufbau. Beide Zeilen in den Hosting-Cronjob (Crontab) kopieren; falls «php» nicht gefunden wird, den vollen PHP-Pfad des Hostings einsetzen.</p>
+      <pre class="gc-code" id="gc-cron-cli">{{ cron_cli_lines }}</pre><button type="button" class="gc-btn gc-btn--sm" data-copy="gc-cron-cli">Kopieren</button>
+      <label class="gc-label">Alternative: Web-Aufruf mit curl <small class="gc-muted">(Cloudflare kann den Aufruf von Rechenzentrums-IPs blockieren)</small></label>
+      <pre class="gc-code" id="gc-cron-curl">{{ cron_curl_lines }}</pre><button type="button" class="gc-btn gc-btn--sm" data-copy="gc-cron-curl">Kopieren</button>
+      <p class="gc-muted">Oder im Modul «Cron tasks manager» die beiden Adressen aus den curl-Zeilen eintragen. Letzter Lauf: {{ last_cron ?: 'noch nie' }}.</p>
     </section>
   </div>
 
