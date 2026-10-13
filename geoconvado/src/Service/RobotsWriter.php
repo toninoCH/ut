@@ -35,18 +35,16 @@ final class RobotsWriter
         $rules = $this->starRules($robots ?? $this->current());
         $agents = BotDetector::robotAgents();
         if ($agents) {
-            foreach ($agents as $agent) {
-                $block[] = 'User-agent: ' . $agent;
+            // Crawler dürfen die Kauf-Bestätigungsseite nicht abrufen. Agenten, die im Auftrag eines Kunden
+            // handeln («-User»), brauchen sie, sonst läuft der «Direkt kaufen»-Link aus der llms.txt ins Leere.
+            $userAgents = array_values(array_intersect($agents, BotDetector::USER_AGENTS));
+            $crawlers = array_values(array_diff($agents, $userAgents));
+            if ($crawlers) {
+                $block = array_merge($block, $this->group($crawlers, $rules, true));
             }
-            $block[] = 'Allow: /llms.txt';
-            $block[] = 'Allow: /llms.json';
-            $block[] = 'Allow: /llms-';
-            $block[] = 'Allow: /llms/';
-            foreach ($rules as $r) {
-                $block[] = $r;
+            if ($userAgents) {
+                $block = array_merge($block, $this->group($userAgents, $rules, false));
             }
-            $block[] = 'Disallow: /module/geoconvado/buy';
-            $block[] = '';
         }
         foreach (BotDetector::blockedAgents() as $agent) {
             $block[] = 'User-agent: ' . $agent;
@@ -58,6 +56,41 @@ final class RobotsWriter
         $block[] = self::END;
 
         return implode("\n", $block);
+    }
+
+    /**
+     * Eine robots.txt-Gruppe für KI-Agenten.
+     *
+     * @param string[] $agents
+     * @param string[] $rules Disallow-Zeilen der «User-agent: *»-Gruppe
+     *
+     * @return string[]
+     */
+    private function group(array $agents, array $rules, bool $blockBuy): array
+    {
+        $out = [];
+        foreach ($agents as $agent) {
+            $out[] = 'User-agent: ' . $agent;
+        }
+        $out[] = 'Allow: /llms.txt';
+        $out[] = 'Allow: /llms.json';
+        $out[] = 'Allow: /llms-';
+        $out[] = 'Allow: /llms/';
+        foreach ($rules as $r) {
+            // Eine allgemeine Modul-Sperre würde auch die Kaufseite der Kunden-Agenten schliessen.
+            if (!$blockBuy && preg_match('#^Disallow:\s*(/\*)?/module/?$#i', $r)) {
+                continue;
+            }
+            $out[] = $r;
+        }
+        if ($blockBuy) {
+            // Mit und ohne Sprachpräfix: die Adresse lautet /de/module/geoconvado/buy.
+            $out[] = 'Disallow: /module/geoconvado/buy';
+            $out[] = 'Disallow: /*/module/geoconvado/buy';
+        }
+        $out[] = '';
+
+        return $out;
     }
 
     public function ensure(string $baseUrl): bool

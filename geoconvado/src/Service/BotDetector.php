@@ -69,6 +69,9 @@ final class BotDetector
         'commoncrawl' => ['Common Crawl (Trainingsdaten)', ['CCBot']],
     ];
 
+    /** Agenten, die im Auftrag eines Kunden einzelne Seiten abrufen (dürfen die Kauf-Bestätigungsseite öffnen). */
+    public const USER_AGENTS = ['ChatGPT-User', 'Claude-User', 'Perplexity-User'];
+
     /** Typische User-Agents für den Selbsttest. */
     public const TEST_UA = [
         'openai' => 'Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko); compatible; GPTBot/1.2; +https://openai.com/gptbot',
