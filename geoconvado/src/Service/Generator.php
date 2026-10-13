@@ -1136,7 +1136,8 @@ final class Generator
             return '';
         }
 
-        return trim((string) \Configuration::get($key, null, null, $idShop));
+        // Auch ältere, schon gespeicherte Werte: Tabulatoren und Zeilenumbrüche zu einem Leerzeichen.
+        return trim((string) preg_replace('/\s+/u', ' ', (string) \Configuration::get($key, null, null, $idShop)));
     }
 
     /** Preise nur, wenn der Shop sie öffentlich zeigt (kein Katalogmodus, Besuchergruppe sieht Preise). */

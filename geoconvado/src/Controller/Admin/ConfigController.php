@@ -100,7 +100,8 @@ class ConfigController extends PrestaShopAdminController
                 $robotsWriter->remove();
             }
             foreach (['payments' => 'GEOCONVADO_PAYMENTS', 'ship_zone' => 'GEOCONVADO_SHIP_ZONE', 'ship_cost' => 'GEOCONVADO_SHIP_COST', 'vat' => 'GEOCONVADO_VAT'] as $f => $k) {
-                \Configuration::updateValue($k, trim(strip_tags((string) $request->request->get($f, ''))));
+                // Tabulatoren und Zeilenumbrüche (z. B. aus eingefügten Tabellen) werden zu einem Leerzeichen.
+                \Configuration::updateValue($k, trim((string) preg_replace('/\s+/u', ' ', strip_tags((string) $request->request->get($f, '')))));
             }
             \Configuration::updateValue('GEOCONVADO_FACTS_REVIEW', 0); // Händler hat die Einkaufsinfos gesehen und bestätigt
             \Configuration::updateValue('GEOCONVADO_W_SUMMARY', $request->request->get('w_summary') ? 1 : 0);
