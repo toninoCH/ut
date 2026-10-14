@@ -95,9 +95,18 @@ final class AgentStore implements KvStore
         return strlen($key) <= 64 && !$this->apcu ? $key : ($this->apcu ? 'geoconvado:' . _DB_PREFIX_ . $key : hash('sha256', $key));
     }
 
+    /** Abgelaufene Einträge der Datenbankvariante entfernen (vom Cron aufgerufen, damit Anfragen nicht aufräumen müssen). */
+    public static function purgeExpired(): int
+    {
+        $db = \Db::getInstance();
+        $db->execute('DELETE FROM `' . _DB_PREFIX_ . 'geoconvado_kv` WHERE `expires` < ' . time() . ' LIMIT 5000');
+
+        return (int) $db->Affected_Rows();
+    }
+
     private function cleanup(): void
     {
-        if (random_int(1, 200) === 1) {
+        if (random_int(1, 1000) === 1) {
             \Db::getInstance()->execute('DELETE FROM `' . _DB_PREFIX_ . 'geoconvado_kv` WHERE `expires` < ' . time() . ' LIMIT 1000');
         }
     }

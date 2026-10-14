@@ -2,7 +2,7 @@
 <module>
     <name>geoconvado</name>
     <displayName><![CDATA[GEO.Convado]]></displayName>
-    <version><![CDATA[1.12.1]]></version>
+    <version><![CDATA[1.13.0]]></version>
     <description><![CDATA[Makes your catalog readable for AI assistants and agents (ChatGPT, Claude, Perplexity, Gemini): llms.txt in all languages, Markdown pages, read-only MCP access, buy links with customer confirmation, FAQs, reviews, shipping and payment info. Measures AI visitors, orders and revenue.]]></description>
     <author><![CDATA[Convado AG]]></author>
     <tab><![CDATA[seo]]></tab>

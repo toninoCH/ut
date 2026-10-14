@@ -123,6 +123,45 @@ final class OfferRules
         return (bool) preg_match('/^[A-Za-z0-9._\-\/]{3,64}$/', $q);
     }
 
+    /**
+     * Merkmal-Filter: Jedes verlangte Merkmal (Name => Wert) muss bei einem Produktmerkmal vorkommen.
+     * Namen und Werte werden ohne Gross-/Kleinschreibung in Wörter zerlegt; alle verlangten Wörter müssen im
+     * Merkmal stehen. «CH» trifft «CH QWERTZ» und «ISO-CH», aber nicht «Cherry».
+     *
+     * @param list<array{name: string, value: string}> $productFeatures
+     * @param array<string, string> $wanted
+     */
+    public static function matchFeatures(array $productFeatures, array $wanted): bool
+    {
+        foreach ($wanted as $name => $value) {
+            $wantName = self::words((string) $name);
+            $wantValue = self::words($value);
+            if (!$wantName || !$wantValue) {
+                return false;
+            }
+            $found = false;
+            foreach ($productFeatures as $f) {
+                if (!array_diff($wantName, self::words($f['name'])) && !array_diff($wantValue, self::words($f['value']))) {
+                    $found = true;
+                    break;
+                }
+            }
+            if (!$found) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /** @return list<string> */
+    private static function words(string $s): array
+    {
+        $parts = preg_split('/[^\p{L}\p{N}]+/u', mb_strtolower($s), -1, PREG_SPLIT_NO_EMPTY);
+
+        return $parts === false ? [] : array_values(array_unique($parts));
+    }
+
     /** Filter auf eine Zusammenfassung anwenden. @param array<string, mixed> $s @param array<string, mixed> $f */
     public static function matches(array $s, array $f): bool
     {

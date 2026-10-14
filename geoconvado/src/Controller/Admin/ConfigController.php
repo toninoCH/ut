@@ -406,6 +406,8 @@ class ConfigController extends PrestaShopAdminController
 
         // Agenten-Zugang (MCP und Entdeckungsdokumente): Antwort und Content-Type müssen stimmen.
         if ((int) \Configuration::get('GEOCONVADO_AGENT')) {
+            $apcu = function_exists('apcu_enabled') && apcu_enabled();
+            $rows[] = ['label' => 'Zwischenspeicher des Agenten-Zugangs', 'ok' => true, 'detail' => $apcu ? 'APCu (schnell, entlastet die Datenbank)' : 'Datenbank (funktioniert; bei vielen Anfragen belastet sie die Datenbank, APCu wird empfohlen)'];
             $ua = 'Mozilla/5.0';
             $hint = ' · Webserver blockiert evtl. «.well-known» oder leitet auf die Startseite um';
             foreach ([['/.well-known/api-catalog', 'application/linkset+json', 'linkset'], ['/.well-known/mcp/server-card.json', 'application/json', 'serverInfo'],

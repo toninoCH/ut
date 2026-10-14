@@ -96,5 +96,31 @@ if (preg_match_all('#\b(?:bash|php)\s+(tests/[A-Za-z0-9_./-]+)#', $readme, $t)) 
     }
 }
 
+// 6. Coding-Standard: zwischen zwei Methoden steht eine Leerzeile (häufiger Befund des Validators)
+$cs = 0;
+foreach ($phpFiles as $p) {
+    $src = (string) file_get_contents($p);
+    if (preg_match_all('/\n    }\n(    (?:\/\*\*|public |private |protected |#\[))/', $src, $mm, PREG_OFFSET_CAPTURE)) {
+        foreach ($mm[0] as $hit) {
+            $bad(sprintf('Leerzeile zwischen Methoden fehlt: %s:%d', $p, substr_count(substr($src, 0, $hit[1]), "\n") + 2));
+            ++$cs;
+        }
+    }
+}
+if ($cs === 0) {
+    $ok('Leerzeile zwischen allen Methoden');
+}
+
+// 7. Unit-Tests (reine Regeln, ohne PrestaShop)
+if (is_file('tests/geoconvado/run.php')) {
+    $out = [];
+    exec('php tests/geoconvado/run.php 2>&1', $out, $rc);
+    if ($rc === 0) {
+        $ok('Unit-Tests bestanden (' . count(array_filter($out, static fn (string $l): bool => strpos($l, 'OK   ') === 0)) . ' Prüfungen)');
+    } else {
+        $bad("Unit-Tests fehlgeschlagen:\n       " . implode("\n       ", array_slice(array_filter($out, static fn (string $l): bool => strpos($l, 'FAIL') === 0), 0, 10)));
+    }
+}
+
 echo $fail ? "\nERGEBNIS: FAILED (" . count($fail) . " Fehler)\n" : "\nERGEBNIS: PASSED\n";
 exit($fail ? 1 : 0);

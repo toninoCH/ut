@@ -51,6 +51,9 @@ final class AgentCatalog implements McpCatalog
             if (!$p || !in_array((string) $p->visibility, ['both', 'search'], true)) {
                 continue;
             }
+            if (!empty($filters['features']) && is_array($filters['features']) && !OfferRules::matchFeatures($this->featureList($p, $idLang), $filters['features'])) {
+                continue;
+            }
             $s = $this->summary($p, $idLang, ProductOffer::variants($p, $idLang, $this->idShop()));
             if (OfferRules::matches($s, $filters)) {
                 $out[] = $s;
@@ -75,7 +78,7 @@ final class AgentCatalog implements McpCatalog
             'reference' => (string) $p->reference,
             'ean13' => (string) $p->ean13,
             'mpn' => (string) $p->mpn,
-            'features' => array_map(static fn (array $f): array => ['name' => (string) $f['name'], 'value' => (string) $f['value']], (array) $p->getFrontFeatures($idLang)),
+            'features' => $this->featureList($p, $idLang),
             'variants' => $variants,
         ];
     }
@@ -128,8 +131,56 @@ final class AgentCatalog implements McpCatalog
             'facts' => Generator::facts($idShop),
             'contact_url' => $this->context->link->getPageLink('contact', true, $idLang),
             'catalog_urls' => ['llms_txt' => $base . '/llms.txt', 'llms_json' => $base . '/llms.json'],
+            'searchable_features' => $this->searchableFeatures($idShop, $idLang),
             'checkout' => 'Kein Agenten-Checkout: Der Kunde bestellt und bezahlt selbst im Shop (get_buy_link).',
         ];
+    }
+
+    /** @return list<array{name: string, value: string}> */
+    private function featureList(\Product $p, int $idLang): array
+    {
+        $out = [];
+        foreach ((array) $p->getFrontFeatures($idLang) as $f) {
+            $out[] = ['name' => (string) $f['name'], 'value' => (string) $f['value']];
+        }
+
+        return $out;
+    }
+
+    /**
+     * Die häufigsten Produktmerkmale mit ihren häufigsten Werten (damit ein Agent gültige Filter kennt).
+     *
+     * @return list<array{name: string, values: list<string>}>
+     */
+    private function searchableFeatures(int $idShop, int $idLang): array
+    {
+        $p = _DB_PREFIX_;
+        $rows = \Db::getInstance(_PS_USE_SQL_SLAVE_)->executeS("SELECT fl.name AS feature, fvl.value AS value, COUNT(*) AS n
+            FROM `{$p}feature_product` fp
+            INNER JOIN `{$p}product_shop` ps ON ps.id_product = fp.id_product AND ps.id_shop = {$idShop} AND ps.active = 1 AND ps.visibility IN ('both', 'search')
+            INNER JOIN `{$p}feature_lang` fl ON fl.id_feature = fp.id_feature AND fl.id_lang = {$idLang}
+            INNER JOIN `{$p}feature_value_lang` fvl ON fvl.id_feature_value = fp.id_feature_value AND fvl.id_lang = {$idLang}
+            GROUP BY fp.id_feature, fp.id_feature_value, fl.name, fvl.value
+            ORDER BY n DESC
+            LIMIT 600") ?: [];
+        $values = [];
+        $total = [];
+        foreach ($rows as $r) {
+            $name = trim((string) $r['feature']);
+            $value = trim((string) $r['value']);
+            if ($name === '' || $value === '') {
+                continue;
+            }
+            $values[$name][] = $value;
+            $total[$name] = ($total[$name] ?? 0) + (int) $r['n'];
+        }
+        arsort($total);
+        $out = [];
+        foreach (array_slice(array_keys($total), 0, 8) as $name) {
+            $out[] = ['name' => (string) $name, 'values' => array_slice(array_values(array_unique($values[$name])), 0, 15)];
+        }
+
+        return $out;
     }
 
     /**

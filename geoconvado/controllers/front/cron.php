@@ -48,6 +48,7 @@ class GeoConvadoCronModuleFrontController extends ModuleFrontController
         try {
             $result = (new Generator($this->context))->run(20, (bool) Tools::getValue('force'));
             GeoConvado\Service\Tracker::aggregate();
+            GeoConvado\Service\AgentStore::purgeExpired();
             if ((int) Configuration::get('GEOCONVADO_RV_ON')) {
                 $result['reviews'] = [
                     'videos' => GeoConvado\Service\VideoProcessor::processQueue(1, max(10, (int) Configuration::get('GEOCONVADO_RV_VIDEO_SEC'))),

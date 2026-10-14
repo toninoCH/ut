@@ -53,6 +53,8 @@ final class McpServer
                     'min_price' => ['type' => 'number', 'minimum' => 0, 'description' => 'Mindestpreis inkl. MwSt.'],
                     'max_price' => ['type' => 'number', 'minimum' => 0, 'description' => 'Höchstpreis inkl. MwSt.'],
                     'in_stock' => ['type' => 'boolean', 'default' => false, 'description' => 'Nur sofort ab Lager lieferbar'],
+                    'features' => ['type' => 'object', 'maxProperties' => 5, 'additionalProperties' => ['type' => 'string', 'maxLength' => 64],
+                        'description' => 'Produktmerkmale als Name und Wert, z. B. {"Language layout": "CH QWERTZ", "Switches": "Brown"}. Gültige Namen und Werte stehen in get_shop_info unter searchable_features.'],
                     'lang' => $lang]],
                 'outputSchema' => $obj, 'annotations' => $ro],
             ['name' => 'get_product', 'title' => 'Produkt im Detail',
@@ -67,7 +69,7 @@ final class McpServer
                     'quantity' => ['type' => 'integer', 'minimum' => 1, 'maximum' => 20, 'default' => 1], 'lang' => $lang]],
                 'outputSchema' => $obj, 'annotations' => $ro],
             ['name' => 'get_shop_info', 'title' => 'Shop-Angaben',
-                'description' => 'Shop, Währung, Sprachen, Versand (Gratis ab, Gebühr, Bestellschluss, Lieferzeit), Zahlungsarten, Kontakt.',
+                'description' => 'Shop, Währung, Sprachen, Versand (Gratis ab, Gebühr, Bestellschluss, Lieferzeit), Zahlungsarten, Kontakt und die durchsuchbaren Produktmerkmale (searchable_features) für search_products.',
                 'inputSchema' => ['type' => 'object', 'additionalProperties' => false, 'properties' => ['lang' => $lang]],
                 'outputSchema' => $obj, 'annotations' => $ro],
         ];
@@ -274,6 +276,19 @@ final class McpServer
                     }
                     if (!empty($a['in_stock'])) {
                         $filters['in_stock'] = true;
+                    }
+                    if (isset($a['features']) && is_array($a['features'])) {
+                        $features = [];
+                        foreach ($a['features'] as $featureName => $featureValue) {
+                            $featureName = mb_substr(trim((string) $featureName), 0, 64);
+                            if (count($features) < 5 && $featureName !== '' && is_string($featureValue) && trim($featureValue) !== '') {
+                                $features[$featureName] = mb_substr(trim($featureValue), 0, 64);
+                            }
+                        }
+                        if ($features) {
+                            ksort($features);
+                            $filters['features'] = $features;
+                        }
                     }
                     $rows = $cat->search($q, $limit, $iso, $filters);
 

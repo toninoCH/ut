@@ -41,6 +41,7 @@ if (!defined('_PS_VERSION_')) {
 }
 require_once _PS_MODULE_DIR_ . 'geoconvado/geoconvado.php';
 
+use GeoConvado\Service\AgentStore;
 use GeoConvado\Service\Generator;
 use GeoConvado\Service\ReviewRepository;
 use GeoConvado\Service\Tracker;
@@ -61,6 +62,7 @@ try {
     }
     $result = (new Generator($ctx))->run($budget, $force);
     Tracker::aggregate();
+    AgentStore::purgeExpired();
     if ((int) Configuration::get('GEOCONVADO_RV_ON')) {
         $result['reviews'] = [
             'videos' => VideoProcessor::processQueue(1, max(10, (int) Configuration::get('GEOCONVADO_RV_VIDEO_SEC'))),

@@ -58,6 +58,7 @@ final class Generator
     {
         return array_values(array_filter(array_map('intval', (array) json_decode((string) \Configuration::get($key), true))));
     }
+
     private ?array $aio = null;
 
     /**

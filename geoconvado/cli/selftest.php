@@ -50,7 +50,8 @@ use GeoConvado\Service\OfferRules;
 use GeoConvado\Service\RateLimit;
 use GeoConvado\Service\RobotsWriter;
 
-$opts = getopt('', ['url::', 'json']);
+$opts = getopt('', ['url::', 'json', 'max-ms::']);
+$maxMs = isset($opts['max-ms']) ? max(50, (int) $opts['max-ms']) : 1500;
 $results = [];
 $check = static function (string $label, bool $ok, string $detail = '') use (&$results): void {
     $results[] = ['ok' => $ok, 'label' => $label, 'detail' => $detail];
@@ -151,6 +152,13 @@ foreach (array_filter(['Produkt mit Varianten' => $withVar, 'Produkt ohne Varian
     $name = (string) $prod['name'];
     $hits = array_column($catalog->search(mb_substr($name, 0, 60), 20, $iso), 'id');
     $check("{$label} #{$id}: Suche nach Name findet es", in_array($id, $hits, true), $name);
+    if (!empty($prod['features'])) {
+        $feature = $prod['features'][0];
+        $hits = array_column($catalog->search(mb_substr($name, 0, 60), 20, $iso, ['features' => [$feature['name'] => $feature['value']]]), 'id');
+        $check("{$label} #{$id}: Suche mit Merkmal «{$feature['name']}» findet es", in_array($id, $hits, true), $feature['value']);
+        $hits = array_column($catalog->search(mb_substr($name, 0, 60), 20, $iso, ['features' => [$feature['name'] => 'zzzunmoeglich']]), 'id');
+        $check("{$label} #{$id}: falscher Merkmalwert findet es nicht", !in_array($id, $hits, true));
+    }
     $code = (string) ($prod['ean13'] ?: $prod['reference']);
     if ($code !== '' && OfferRules::looksLikeCode($code)) {
         $hits = array_column($catalog->search($code, 5, $iso), 'id');
@@ -167,6 +175,18 @@ $check('MCP tools/list', count($list['result']['tools'] ?? []) === 4);
 $info = json_decode((string) McpServer::handle('{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"get_shop_info","arguments":{}}}', $catalog, $iso)['body'], true);
 $check('MCP get_shop_info', ($info['result']['isError'] ?? true) === false, (string) ($info['result']['structuredContent']['currency'] ?? ''));
 
+$features = $info['result']['structuredContent']['searchable_features'] ?? null;
+$check('MCP get_shop_info nennt durchsuchbare Merkmale', is_array($features), is_array($features) ? count($features) . ' Merkmale' : 'fehlt');
+$probeQuery = isset($name) ? mb_substr((string) $name, 0, 40) : 'Tastatur';
+$times = [];
+for ($i = 0; $i < 15; ++$i) {
+    $t0 = microtime(true);
+    McpServer::handle((string) json_encode(['jsonrpc' => '2.0', 'id' => 100 + $i, 'method' => 'tools/call', 'params' => ['name' => 'search_products', 'arguments' => ['query' => $probeQuery, 'limit' => 5 + ($i % 3)]]]), $catalog, $iso);
+    $times[] = (microtime(true) - $t0) * 1000;
+}
+sort($times);
+$p95 = $times[(int) floor(0.95 * (count($times) - 1))];
+$check('MCP-Antwortzeit search_products (15 Aufrufe, P95)', $p95 <= $maxMs, sprintf('%.0f ms (Grenze %d ms, Median %.0f ms)', $p95, $maxMs, $times[(int) floor(0.5 * (count($times) - 1))]));
 // --- 4. Speicher und Ratenbegrenzung
 $store = new AgentStore();
 $k = 'selftest-' . bin2hex(random_bytes(4));
