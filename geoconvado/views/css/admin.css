@@ -62,6 +62,10 @@
 .gc-btn{border:1px solid var(--gc-line);background:#fff;color:var(--gc-ink);border-radius:10px;padding:8px 14px;font-weight:500;cursor:pointer}
 .gc-btn:hover{border-color:var(--gc-acc);color:var(--gc-acc)}
 .gc-btn--primary{background:var(--gc-acc);border-color:var(--gc-acc);color:#fff}.gc-btn--primary:hover{color:#fff;opacity:.92}
+/* Links als Schaltflächen: das Admin-Theme färbt a:link; ohne diese Regeln steht grüner Text auf grünem Grund. */
+a.gc-btn,a.gc-btn:link,a.gc-btn:visited{display:inline-block;color:var(--gc-ink);text-decoration:none}
+a.gc-btn:hover,a.gc-btn:focus{color:var(--gc-acc);text-decoration:none}
+a.gc-btn--primary,a.gc-btn--primary:link,a.gc-btn--primary:visited,a.gc-btn--primary:hover,a.gc-btn--primary:focus{color:#fff;text-decoration:none}
 .gc-settings summary{cursor:pointer;list-style:none;margin:0}
 .gc-settings summary::after{content:"▾";float:right;color:var(--gc-mut)}
 .gc-settings[open] summary{margin-bottom:10px}

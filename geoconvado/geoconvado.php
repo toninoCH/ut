@@ -108,7 +108,7 @@ class GeoConvado extends Module
     {
         $this->name = 'geoconvado';
         $this->tab = 'seo';
-        $this->version = '1.13.2';
+        $this->version = '1.13.3';
         $this->author = 'Convado AG';
         $this->need_instance = 0;
         $this->bootstrap = true;
