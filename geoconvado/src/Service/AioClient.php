@@ -24,6 +24,9 @@ if (!defined('_PS_VERSION_')) {
 final class AioClient
 {
     public const ENDPOINT = 'https://pklhuswpdxdixkmtgxqf.supabase.co/functions/v1/geo-reviews-export';
+    /** Standard-Basisadresse des Convado AIO; überschreibbar mit GEOCONVADO_AIO_URL (z. B. für STAGE oder eigenen Betrieb). */
+    public const DEFAULT_BASE = 'https://pklhuswpdxdixkmtgxqf.supabase.co/functions/v1';
+    public const CFG_URL = 'GEOCONVADO_AIO_URL';
     private const CACHE_TTL = 3600;
     /** Nach einem Fehler 15 Min. Pause, danach höchstens 30 Tage alte Daten verwenden. */
     private const BACKOFF = 900;
@@ -123,6 +126,20 @@ final class AioClient
             : ['ok' => true, 'shop' => $data['shop']['name'] ?? '', 'products' => count($data['products'] ?? []), 'faqs' => count($data['faqs'] ?? [])];
     }
 
+    /** Adresse einer AIO-Funktion (Basis aus der Einstellung, sonst Standard). */
+    public static function endpoint(string $function): string
+    {
+        return self::base((string) \Configuration::get(self::CFG_URL)) . '/' . $function;
+    }
+
+    /** Gültige Basisadresse (nur https, ohne Abfrage und abschliessenden Schrägstrich), sonst der Standard. */
+    public static function base(string $configured): string
+    {
+        $u = rtrim(trim($configured), '/');
+
+        return preg_match('#^https://[a-z0-9.\-]+(:\d{1,5})?(/[A-Za-z0-9._~\-/]*)?$#i', $u) ? $u : self::DEFAULT_BASE;
+    }
+
     /**
      * Übersetzt einen Text in die Zielsprachen (über den AIO, Ergebnis wird im Shop gespeichert).
      *
@@ -130,7 +147,7 @@ final class AioClient
      */
     public function translate(string $key, string $text, string $source, array $targets): array
     {
-        $ch = curl_init(str_replace('geo-reviews-export', 'geo-translate', self::ENDPOINT));
+        $ch = curl_init(self::endpoint('geo-translate'));
         curl_setopt_array($ch, [
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_POST => true,
@@ -151,7 +168,7 @@ final class AioClient
 
     private function request(string $key, ?string &$error = null): ?array
     {
-        $ch = curl_init(self::ENDPOINT);
+        $ch = curl_init(self::endpoint('geo-reviews-export'));
         curl_setopt_array($ch, [
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_TIMEOUT => 10,

@@ -21,10 +21,17 @@ if (!defined('_PS_VERSION_')) {
 
 require_once __DIR__ . '/vendor/autoload.php';
 
+use GeoConvado\Service\AgentDocs;
+use GeoConvado\Service\AgentStore;
 use GeoConvado\Service\AioClient;
+use GeoConvado\Service\AiReferral;
 use GeoConvado\Service\AtomicFile;
+use GeoConvado\Service\Attribution;
 use GeoConvado\Service\BotDetector;
+use GeoConvado\Service\FaqPage;
 use GeoConvado\Service\Generator;
+use GeoConvado\Service\MarkdownNegotiator;
+use GeoConvado\Service\McpStats;
 use GeoConvado\Service\MediaProcessor;
 use GeoConvado\Service\ReviewEligibility;
 use GeoConvado\Service\ReviewGuard;
@@ -63,7 +70,10 @@ class GeoConvado extends Module
         'GEOCONVADO_RV_ON', 'GEOCONVADO_RV_DAYS', 'GEOCONVADO_RV_MIN_TEXT', 'GEOCONVADO_RV_MIN_CHARS', 'GEOCONVADO_RV_PHOTO_REQ', 'GEOCONVADO_RV_VOUCHER_ON',
         'GEOCONVADO_RV_VOUCHER_AMOUNT', 'GEOCONVADO_RV_VOUCHER_DAYS', 'GEOCONVADO_RV_VOUCHER_MIN', 'GEOCONVADO_RV_VOUCHER_YEAR_MAX', 'GEOCONVADO_RV_IMG_MAX',
         'GEOCONVADO_RV_VIDEO_ON', 'GEOCONVADO_RV_VIDEO_MB', 'GEOCONVADO_RV_VIDEO_SEC', 'GEOCONVADO_RV_AUTO', 'GEOCONVADO_RV_LD', 'GEOCONVADO_RV_LD_INC',
-        'GEOCONVADO_RV_BLOCK', 'GEOCONVADO_RV_STATES', 'GEOCONVADO_RV_PURGE', 'GEOCONVADO_RV_FFMPEG', 'GEOCONVADO_RV_FFPROBE', 'GEOCONVADO_PROFILE_FEATURES', 'GEOCONVADO_SPLIT_KB'];
+        'GEOCONVADO_RV_BLOCK', 'GEOCONVADO_RV_STATES', 'GEOCONVADO_RV_PURGE', 'GEOCONVADO_RV_FFMPEG', 'GEOCONVADO_RV_FFPROBE', 'GEOCONVADO_PROFILE_FEATURES', 'GEOCONVADO_SPLIT_KB',
+        'GEOCONVADO_CONTENT_SIGNAL', 'GEOCONVADO_MD_NEGOTIATION', 'GEOCONVADO_FAQ_CMS', 'GEOCONVADO_ROBOTS_ERR',
+        'GEOCONVADO_SHIP_FREE_FROM', 'GEOCONVADO_SHIP_FEE', 'GEOCONVADO_SHIP_CUTOFF', 'GEOCONVADO_SHIP_DAYS', 'GEOCONVADO_AGENT',
+        'GEOCONVADO_ATTRIBUTION', 'GEOCONVADO_MCP_RPM', 'GEOCONVADO_MCP_CACHE', 'GEOCONVADO_MCP_ORIGINS', 'GEOCONVADO_AIO_URL', 'GEOCONVADO_AGG_DAY'];
 
     /** Standardwerte des Bewertungsprogramms (ab 1.7.0). Das Programm ist bis zur Aktivierung ausgeschaltet. */
     public const RV_DEFAULTS = ['GEOCONVADO_RV_ON' => 0, 'GEOCONVADO_RV_DAYS' => 5, 'GEOCONVADO_RV_MIN_TEXT' => 30, 'GEOCONVADO_RV_MIN_CHARS' => 150,
@@ -75,7 +85,7 @@ class GeoConvado extends Module
     /** Schalter ab 1.4.0 mit Standardwert (Standard = bisheriges Verhalten). */
     public const SWITCH_DEFAULTS = ['GEOCONVADO_INC_CMS' => 1, 'GEOCONVADO_INC_BRANDS' => 1, 'GEOCONVADO_INC_CATS' => 1,
         'GEOCONVADO_EXCL_OOS' => 0, 'GEOCONVADO_F_PRICE' => 1, 'GEOCONVADO_F_STOCK' => 1, 'GEOCONVADO_F_IMAGE' => 1,
-        'GEOCONVADO_F_META' => 1, 'GEOCONVADO_F_FEATURES' => 1, 'GEOCONVADO_F_VARIANTS' => 1, 'GEOCONVADO_CRON_ON' => 1];
+        'GEOCONVADO_F_META' => 1, 'GEOCONVADO_F_FEATURES' => 1, 'GEOCONVADO_F_VARIANTS' => 1, 'GEOCONVADO_CRON_ON' => 1, 'GEOCONVADO_MD_NEGOTIATION' => 1, 'GEOCONVADO_AGENT' => 1, 'GEOCONVADO_ATTRIBUTION' => 1];
 
     /** Änderungen, die eine Aktualisierung auslösen (seit 1.6.0). */
     public const CHANGE_HOOKS = ['actionObjectSpecificPriceAddAfter', 'actionObjectSpecificPriceUpdateAfter', 'actionObjectSpecificPriceDeleteAfter',
@@ -98,7 +108,7 @@ class GeoConvado extends Module
     {
         $this->name = 'geoconvado';
         $this->tab = 'seo';
-        $this->version = '1.10.6';
+        $this->version = '1.12.1';
         $this->author = 'Convado AG';
         $this->need_instance = 0;
         $this->bootstrap = true;
@@ -107,7 +117,7 @@ class GeoConvado extends Module
         parent::__construct();
 
         $this->displayName = $this->trans('GEO.Convado', [], 'Modules.Geoconvado.Admin');
-        $this->description = $this->trans('Makes your shop the first choice of ChatGPT, Claude, Perplexity and Gemini: full catalog as llms.txt in all languages with reviews, product FAQs, shipping and payment info and agent checkout links. Shows a neutral AI assessment (pros and cons) and your Google reviews on the product page.', [], 'Modules.Geoconvado.Admin');
+        $this->description = $this->trans('Makes your catalog readable for AI assistants and agents (ChatGPT, Claude, Perplexity, Gemini): llms.txt in all languages, Markdown pages, read-only MCP access, buy links with customer confirmation, FAQs, reviews, shipping and payment info. Measures AI visitors, orders and revenue.', [], 'Modules.Geoconvado.Admin');
         $this->confirmUninstall = $this->trans('Die llms-Dateien und die Einstellungen werden gelöscht. Käuferbewertungen und hochgeladene Medien bleiben erhalten, ausser Sie haben im Reiter «Bewertungen» das Löschen gewählt. Fortfahren?', [], 'Modules.Geoconvado.Admin');
     }
 
@@ -129,6 +139,9 @@ class GeoConvado extends Module
             && $this->registerHook(self::FRONT_HOOKS)
             && $this->registerHook('actionFrontControllerSetMedia')
             && $this->registerHook('actionAdminMetaBeforeWriteRobotsFile')
+            && $this->registerHook('actionOutputHTMLBefore')
+            && $this->registerHook('filterCmsContent')
+            && $this->registerHook(['actionCartSave', 'actionValidateOrder'])
             && $this->registerHook('actionObjectProductUpdateAfter')
             && $this->registerHook('actionObjectProductAddAfter')
             && $this->registerHook('actionObjectProductDeleteAfter')
@@ -149,7 +162,7 @@ class GeoConvado extends Module
         if ($purge) {
             $this->purgeReviews();
         }
-        Db::getInstance()->execute('DROP TABLE IF EXISTS `' . _DB_PREFIX_ . 'geoconvado_state`, `' . _DB_PREFIX_ . 'geoconvado_bot_log`, `' . _DB_PREFIX_ . 'geoconvado_review_cache`, `' . _DB_PREFIX_ . 'geoconvado_stats_daily`, `' . _DB_PREFIX_ . 'geoconvado_front`');
+        Db::getInstance()->execute('DROP TABLE IF EXISTS `' . _DB_PREFIX_ . 'geoconvado_state`, `' . _DB_PREFIX_ . 'geoconvado_bot_log`, `' . _DB_PREFIX_ . 'geoconvado_review_cache`, `' . _DB_PREFIX_ . 'geoconvado_stats_daily`, `' . _DB_PREFIX_ . 'geoconvado_front`, `' . _DB_PREFIX_ . 'geoconvado_faqpage`, `' . _DB_PREFIX_ . 'geoconvado_kv`, `' . _DB_PREFIX_ . 'geoconvado_mcp_stats`, `' . _DB_PREFIX_ . 'geoconvado_attribution`');
 
         return parent::uninstall();
     }
@@ -178,8 +191,45 @@ class GeoConvado extends Module
             && Configuration::updateValue(self::CFG_W_SUMMARY, 1)
             && Configuration::updateValue(self::CFG_W_REVIEWS, 1)
             && Configuration::updateValue('GEOCONVADO_UPSELL', 1)
+            && $this->installSignalDefault()
+            && $this->installFaqCmsDefault()
             && $this->installReviewDefaults()
             && $this->installSwitches();
+    }
+
+    /** Zwischenspeicher der FAQ-Seite je Shop und Sprache (seit 1.8.1). */
+    public function installFaqTable(): bool
+    {
+        return (bool) Db::getInstance()->execute('CREATE TABLE IF NOT EXISTS `' . _DB_PREFIX_ . 'geoconvado_faqpage` (
+            `id_shop` INT UNSIGNED NOT NULL,
+            `iso` VARCHAR(2) NOT NULL,
+            `payload` MEDIUMTEXT NOT NULL,
+            `canonical` VARCHAR(500) NOT NULL DEFAULT \'\',
+            `fetched_at` DATETIME NOT NULL,
+            `retry_at` DATETIME NOT NULL DEFAULT \'1970-01-02 00:00:00\',
+            PRIMARY KEY (`id_shop`, `iso`)
+        ) ENGINE=' . _MYSQL_ENGINE_ . ' DEFAULT CHARSET=utf8mb4');
+    }
+
+    /** Die einzige CMS-Seite mit «faq» im Namen als Hilfeseite vormerken, sofern noch keine gewählt ist (Upgrade-sicher). */
+    public function installFaqCmsDefault(): bool
+    {
+        if (Configuration::get(FaqPage::CFG_CMS) !== false) {
+            return true;
+        }
+        $ids = array_unique(array_map('intval', array_column(Db::getInstance()->executeS('SELECT id_cms FROM `' . _DB_PREFIX_ . "cms_lang` WHERE link_rewrite LIKE '%faq%'") ?: [], 'id_cms')));
+
+        return Configuration::updateValue(FaqPage::CFG_CMS, count($ids) === 1 ? $ids[0] : 0);
+    }
+
+    /** Content Signals nur setzen, wenn noch keine Wahl getroffen wurde (Upgrade-sicher). */
+    public function installSignalDefault(): bool
+    {
+        if (Configuration::get(RobotsWriter::CFG_SIGNAL) === false) {
+            Configuration::updateValue(RobotsWriter::CFG_SIGNAL, RobotsWriter::SIGNAL_DEFAULT);
+        }
+
+        return true;
     }
 
     /** Bewertungs-Einstellungen nur setzen, wenn sie noch fehlen (Upgrade-sicher). */
@@ -258,7 +308,13 @@ class GeoConvado extends Module
             }
         }
 
-        return $this->installStatsTable() && ReviewRepository::install();
+        return $this->installFaqTable() && $this->installStatsTable() && ReviewRepository::install() && $this->installAgentTables();
+    }
+
+    /** Tabellen für Agenten-Zugang (Cache, Ratenbegrenzung, Messung) und KI-Umsatzzuordnung (ab 1.12.0). */
+    public function installAgentTables(): bool
+    {
+        return AgentStore::install() && McpStats::install() && Attribution::install();
     }
 
     /** Tageswerte (unbegrenzt aufbewahrt, klein). */
@@ -274,24 +330,38 @@ class GeoConvado extends Module
         ) ENGINE=' . _MYSQL_ENGINE_ . ' DEFAULT CHARSET=utf8mb4');
     }
 
-    /** llms-Adressen über das Modul ausliefern (nur bei aktiver Zählung). */
+    /** Adressen über das Modul ausliefern: Entdeckungsdokumente und MCP (Schalter «Agenten-Zugang»), llms-Dateien (bei aktiver Zählung). */
     public function hookModuleRoutes(): array
     {
-        if (!(int) Configuration::get(self::CFG_TRACK_LLMS)) {
-            return [];
+        $routes = [];
+        if ((int) Configuration::get('GEOCONVADO_AGENT')) {
+            $agent = static fn (string $rule, string $doc, array $keywords = []): array => [
+                'controller' => 'agent', 'rule' => $rule, 'keywords' => $keywords,
+                'params' => ['fc' => 'module', 'module' => 'geoconvado', 'doc' => $doc],
+            ];
+            $routes['module-geoconvado-mcp'] = $agent('mcp', 'mcp');
+            $routes['module-geoconvado-openapi'] = $agent('openapi.json', 'openapi');
+            $routes['module-geoconvado-apicatalog'] = $agent('.well-known/api-catalog', 'api-catalog');
+            $routes['module-geoconvado-servercard'] = $agent('.well-known/mcp/server-card.json', 'server-card');
+            $routes['module-geoconvado-skillsindex'] = $agent('.well-known/agent-skills/index.json', 'skills-index');
+            $routes['module-geoconvado-skill'] = $agent('.well-known/agent-skills/{name}/SKILL.md', 'skill', ['name' => ['regexp' => '[a-z0-9\\-]+', 'param' => 'name']]);
+        }
+        if ((int) Configuration::get(self::CFG_TRACK_LLMS)) {
+            $routes['module-geoconvado-llms'] = [
+                'controller' => 'serve',
+                'rule' => 'llms{path}.txt',
+                'keywords' => ['path' => ['regexp' => '[a-z0-9/\\-]*', 'param' => 'path']],
+                'params' => ['fc' => 'module', 'module' => $this->name],
+            ];
+            $routes['module-geoconvado-llmsjson'] = [
+                'controller' => 'serve',
+                'rule' => 'llms.json',
+                'keywords' => [],
+                'params' => ['fc' => 'module', 'module' => $this->name, 'format' => 'json'],
+            ];
         }
 
-        return ['module-geoconvado-llms' => [
-            'controller' => 'serve',
-            'rule' => 'llms{path}.txt',
-            'keywords' => ['path' => ['regexp' => '[a-z0-9/\\-]*', 'param' => 'path']],
-            'params' => ['fc' => 'module', 'module' => $this->name],
-        ], 'module-geoconvado-llmsjson' => [
-            'controller' => 'serve',
-            'rule' => 'llms.json',
-            'keywords' => [],
-            'params' => ['fc' => 'module', 'module' => $this->name, 'format' => 'json'],
-        ]];
+        return $routes;
     }
 
     /** Backoffice: Weiterleitung auf die Symfony-Konfigurationsseite. */
@@ -306,11 +376,124 @@ class GeoConvado extends Module
     {
         $bot = BotDetector::detect((string) ($_SERVER['HTTP_USER_AGENT'] ?? ''));
         if ($bot === null) {
+            $this->trackAiReferral();
+
             return;
         }
         $c = $this->context->controller;
         $idProduct = $c->php_self === 'product' ? (int) Tools::getValue('id_product') : 0;
         Tracker::log((int) $this->context->shop->id, $bot, 'page', (string) ($_SERVER['REQUEST_URI'] ?? '/'), $idProduct);
+    }
+
+    /**
+     * Besucher aus einem KI-Assistenten (Referrer oder utm_source) zählen und die Herkunft im Shop-Cookie merken,
+     * damit eine spätere Bestellung zugeordnet werden kann. Gespeichert wird nur die Quelle, keine Personendaten.
+     */
+    private function trackAiReferral(): void
+    {
+        if (!(int) Configuration::get('GEOCONVADO_ATTRIBUTION') || !isset($this->context->cookie)) {
+            return;
+        }
+        $src = AiReferral::detect((string) ($_SERVER['HTTP_REFERER'] ?? ''), (string) Tools::getValue('utm_source', ''));
+        if ($src === null) {
+            return;
+        }
+        $this->context->cookie->__set('geo_ai', AiReferral::encode($src, time()));
+        $idShop = (int) $this->context->shop->id;
+        Tracker::log($idShop, $src, 'ref', (string) parse_url((string) ($_SERVER['REQUEST_URI'] ?? '/'), PHP_URL_PATH));
+        $idCart = (int) ($this->context->cart->id ?? 0);
+        if ($idCart > 0) {
+            Attribution::markCart($idShop, $idCart, $src, Attribution::CHANNEL_REFERRAL);
+        }
+    }
+
+    /** Warenkorb eines KI-Besuchers zuordnen (einmal je Warenkorb und Aufruf). */
+    public function hookActionCartSave(array $params): void
+    {
+        static $seen = [];
+        $cart = $params['cart'] ?? null;
+        if (!$cart instanceof Cart || (int) $cart->id < 1 || isset($seen[(int) $cart->id]) || !(int) Configuration::get('GEOCONVADO_ATTRIBUTION')) {
+            return;
+        }
+        $seen[(int) $cart->id] = true;
+        $src = isset($this->context->cookie) ? AiReferral::decode((string) ($this->context->cookie->geo_ai ?? ''), time()) : null;
+        if ($src !== null) {
+            Attribution::markCart((int) $cart->id_shop, (int) $cart->id, $src, Attribution::CHANNEL_REFERRAL);
+        }
+    }
+
+    /** Bestellung mit zugeordnetem Warenkorb verknüpfen (funktioniert auch bei Zahlungsbestätigung ohne Kunden-Cookie). */
+    public function hookActionValidateOrder(array $params): void
+    {
+        $order = $params['order'] ?? null;
+        if ($order instanceof Order && (int) Configuration::get('GEOCONVADO_ATTRIBUTION')) {
+            Attribution::onOrder($order);
+        }
+    }
+
+    /**
+     * Hilfeseite: Der Inhalt der gewählten CMS-Seite kommt in der Sprache des Besuchers aus dem AIO (Design, Texte,
+     * FAQPage-JSON-LD). Ohne Daten oder bei Fehlern bleibt der bisherige CMS-Inhalt unverändert.
+     *
+     * @return array{object: array}
+     */
+    public function hookFilterCmsContent(array $params): array
+    {
+        $cms = $params['object'] ?? null;
+        $id = (int) Configuration::get(FaqPage::CFG_CMS);
+        if (!is_array($cms) || $id < 1 || (int) ($cms['id'] ?? 0) !== $id) {
+            return ['object' => $cms];
+        }
+        $lang = $this->context->language;
+        $canonical = (string) $this->context->link->getCMSLink($id, null, null, (int) $lang->id, (int) $this->context->shop->id);
+        if (!str_starts_with($canonical, 'https://')) {
+            return ['object' => $cms];
+        }
+        $page = (new FaqPage())->get((int) $this->context->shop->id, strtolower((string) $lang->iso_code), strtok($canonical, '#') ?: $canonical);
+        if ($page !== null) {
+            $cms['content'] = FaqPage::inject((string) ($cms['content'] ?? ''), $page['html']);
+            if (trim((string) ($cms['meta_description'] ?? '')) === '' && $page['description'] !== '') {
+                $cms['meta_description'] = $page['description'];
+            }
+        }
+
+        return ['object' => $cms];
+    }
+
+    /** Seiten, die nie als Markdown ausgeliefert werden (privat oder ohne Inhalt für Agenten). */
+    private const MD_SKIP = ['cart', 'order', 'order-confirmation', 'authentication', 'registration', 'my-account', 'identity', 'address',
+        'addresses', 'history', 'order-detail', 'order-follow', 'order-slip', 'discount', 'guest-tracking', 'password', 'pagenotfound'];
+
+    /**
+     * Content-Negotiation: «Accept: text/markdown» liefert den Seiteninhalt als Markdown, alle anderen weiterhin HTML.
+     * «Vary: Accept» verhindert, dass ein Cache die falsche Fassung ausliefert.
+     */
+    public function hookActionOutputHTMLBefore(array $params): void
+    {
+        if (!(int) Configuration::get('GEOCONVADO_MD_NEGOTIATION') || !isset($params['html']) || !is_string($params['html'])) {
+            return;
+        }
+        $c = $this->context->controller;
+        if (!$c instanceof FrontController || $c instanceof ModuleFrontController || !empty($c->ajax)
+            || in_array($c->php_self, self::MD_SKIP, true)
+            || !in_array((string) ($_SERVER['REQUEST_METHOD'] ?? 'GET'), ['GET', 'HEAD'], true)
+            || (isset($this->context->customer) && $this->context->customer->isLogged())
+            || headers_sent() || stripos($params['html'], '<html') === false) {
+            return;
+        }
+        header('Vary: Accept', false);
+        if (!MarkdownNegotiator::wants((string) ($_SERVER['HTTP_ACCEPT'] ?? ''))) {
+            return;
+        }
+        $url = (Tools::usingSecureMode() ? 'https://' : 'http://') . Tools::getHttpHost() . (string) strtok((string) ($_SERVER['REQUEST_URI'] ?? '/'), '?');
+        $md = MarkdownNegotiator::convert($params['html'], $url);
+        if ($md === null) {
+            return;
+        }
+        header('Content-Type: text/markdown; charset=utf-8');
+        header('X-Markdown-Tokens: ' . (int) ceil(mb_strlen($md) / 4));
+        header('Link: <' . $url . '>; rel="canonical"', false);
+        $params['html'] = $md;
     }
 
     /** Wird PrestaShop's robots.txt neu geschrieben, fügt der nächste Cron den GEO-Block wieder an. */
@@ -495,6 +678,12 @@ class GeoConvado extends Module
         $this->addFrontCss();
         $base = rtrim($this->context->link->getBaseLink(), '/');
         $this->context->smarty->assign(['geo_llms_txt' => $base . '/llms.txt', 'geo_llms_json' => $base . '/llms.json']);
+        if ((int) Configuration::get('GEOCONVADO_AGENT')) {
+            if ($this->context->controller->php_self === 'index' && !headers_sent()) {
+                header('Link: ' . AgentDocs::linkHeader(), false);
+            }
+            $this->context->controller->registerJavascript('geoconvado-webmcp', 'modules/' . $this->name . '/views/js/webmcp.js', ['position' => 'bottom', 'priority' => 200, 'attributes' => 'defer']);
+        }
 
         return $this->fetch('module:geoconvado/views/templates/hook/head.tpl');
     }

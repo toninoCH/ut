@@ -23,8 +23,13 @@ if (!defined('_PS_VERSION_')) {
 
 final class Tracker
 {
-    /** page = Seitenaufruf, llms = Dateiabruf, buy = in den Warenkorb gelegt, bview = Bestätigungsseite nur angesehen (zählt nicht als Kauf). */
-    public const KINDS = ['page', 'llms', 'buy', 'bview'];
+    /**
+     * page = Seitenaufruf eines KI-Crawlers, llms = Datei- oder MCP-Abruf, buy = in den Warenkorb gelegt,
+     * bview = Bestätigungsseite nur angesehen (zählt nicht als Kauf), ref = Besucher aus einem KI-Assistenten (Mensch).
+     */
+    public const KINDS = ['page', 'llms', 'buy', 'bview', 'ref'];
+    /** Arten, die als KI-Zugriff zählen (ohne Bestätigungsseite und ohne menschliche Besucher). */
+    public const BOT_KINDS = "'page','llms','buy'";
 
     public static function log(int $idShop, string $bot, string $kind, string $path, int $idProduct = 0): void
     {
@@ -57,16 +62,22 @@ final class Tracker
         return '';
     }
 
-    /** Tageswerte verdichten (idempotent) und alte Rohdaten löschen. */
+    /**
+     * Tageswerte verdichten (idempotent) und alte Rohdaten löschen. Verdichtet wird ab dem letzten verdichteten Tag
+     * (minus ein Tag für spät eintreffende Zeilen), damit auch nach längeren Cron-Ausfällen kein Tag fehlt.
+     */
     public static function aggregate(): void
     {
         $p = _DB_PREFIX_;
         $db = \Db::getInstance();
+        $last = (string) \Configuration::getGlobalValue('GEOCONVADO_AGG_DAY');
+        $from = preg_match('/^\d{4}-\d{2}-\d{2}$/', $last) ? "DATE_SUB('" . pSQL($last) . "', INTERVAL 1 DAY)" : 'DATE_SUB(CURDATE(), INTERVAL 90 DAY)';
         $db->execute("INSERT INTO `{$p}geoconvado_stats_daily` (`day`, `id_shop`, `bot`, `kind`, `hits`)
             SELECT DATE(created_at), id_shop, bot, kind, COUNT(*) FROM `{$p}geoconvado_bot_log`
-            WHERE created_at >= DATE_SUB(CURDATE(), INTERVAL 2 DAY)
+            WHERE created_at >= {$from}
             GROUP BY DATE(created_at), id_shop, bot, kind
             ON DUPLICATE KEY UPDATE hits = VALUES(hits)");
+        \Configuration::updateGlobalValue('GEOCONVADO_AGG_DAY', date('Y-m-d'));
         $db->execute("DELETE FROM `{$p}geoconvado_bot_log` WHERE created_at < DATE_SUB(NOW(), INTERVAL 90 DAY)");
     }
 
@@ -81,13 +92,13 @@ final class Tracker
         $prev = 'day <= DATE_SUB(CURDATE(), INTERVAL 30 DAY) AND day > DATE_SUB(CURDATE(), INTERVAL 60 DAY)';
 
         $kpi = [];
-        foreach (['all' => "kind <> 'bview'", 'page' => "kind='page'", 'llms' => "kind='llms'", 'buy' => "kind='buy'"] as $k => $w) {
+        foreach (['all' => 'kind IN (' . self::BOT_KINDS . ')', 'page' => "kind='page'", 'llms' => "kind='llms'", 'buy' => "kind='buy'"] as $k => $w) {
             $a = $sum("$cur AND $w");
             $b = $sum("$prev AND $w");
             $kpi[$k] = ['value' => $a, 'delta' => $b > 0 ? (int) round(($a - $b) / $b * 100) : null];
         }
 
-        $providers = $db->executeS("SELECT bot, SUM(hits) AS hits FROM `{$p}geoconvado_stats_daily` WHERE $cur AND kind NOT IN ('buy','bview')
+        $providers = $db->executeS("SELECT bot, SUM(hits) AS hits FROM `{$p}geoconvado_stats_daily` WHERE $cur AND kind IN ('page','llms')
             GROUP BY bot ORDER BY hits DESC LIMIT 8") ?: [];
         $max = max(1, (int) ($providers[0]['hits'] ?? 1));
         foreach ($providers as &$r) {
@@ -96,7 +107,7 @@ final class Tracker
         unset($r);
 
         // Verlauf 30 Tage als SVG-Balken
-        $rows = $db->executeS("SELECT day, SUM(hits) AS hits FROM `{$p}geoconvado_stats_daily` WHERE $cur GROUP BY day") ?: [];
+        $rows = $db->executeS("SELECT day, SUM(hits) AS hits FROM `{$p}geoconvado_stats_daily` WHERE $cur AND kind IN (" . self::BOT_KINDS . ') GROUP BY day') ?: [];
         $byDay = array_column($rows, 'hits', 'day');
         $series = [];
         for ($i = 29; $i >= 0; --$i) {
@@ -116,7 +127,7 @@ final class Tracker
 
         // Letzte Abrufe (Rohdaten, 90 Tage): Zeit, KI, Art, Datei/Seite, anonymisierte IP, User-Agent.
         $recent = $db->executeS("SELECT created_at, bot, kind, path, ip, user_agent FROM `{$p}geoconvado_bot_log`
-            WHERE kind <> 'bview' ORDER BY id DESC LIMIT 40") ?: [];
+            WHERE kind IN ('page','llms','buy','ref') ORDER BY id DESC LIMIT 40") ?: [];
 
         return [
             'recent' => $recent,

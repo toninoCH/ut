@@ -113,6 +113,7 @@ final class Generator
             'guide' => ['de' => 'Anleitung für KI-Agenten', 'en' => 'Instructions for AI agents', 'fr' => 'Instructions pour agents IA'],
             'catalogs' => ['de' => 'Produktkataloge', 'en' => 'Product catalogues', 'fr' => 'Catalogues de produits'],
             'products' => ['de' => 'Produkte', 'en' => 'products', 'fr' => 'produits'],
+            'count_note' => ['de' => 'Die Zahl in Klammern zählt Produkte inklusive Unterkategorien; ein Produkt kann in mehreren Kategorien vorkommen, die Summe ist deshalb grösser als die Zahl der Produkte.', 'en' => 'The number in brackets counts products including subcategories; a product can appear in several categories, so the sum is larger than the number of distinct products.', 'fr' => 'Le nombre entre parenthèses compte les produits, sous-catégories incluses ; un produit peut figurer dans plusieurs catégories, la somme dépasse donc le nombre de produits distincts.'],
             'none_products' => ['de' => '(keine Produkte)', 'en' => '(no products)', 'fr' => '(aucun produit)'],
             'full_catalog' => ['de' => 'Vollständiger Katalog', 'en' => 'Full catalogue', 'fr' => 'Catalogue complet'],
             'categories' => ['de' => 'Kategorien', 'en' => 'Categories', 'fr' => 'Catégories'],
@@ -473,7 +474,7 @@ final class Generator
 
         // 2) Sprach-Index
         $index = $header
-            . '## ' . self::L('catalogs', $iso) . "\n\n" . ($catLinks ? implode("\n", $catLinks) : '- ' . self::L('none_products', $iso)) . "\n\n"
+            . '## ' . self::L('catalogs', $iso) . "\n\n" . ($catLinks ? implode("\n", $catLinks) . "\n\n" . self::L('count_note', $iso) : '- ' . self::L('none_products', $iso)) . "\n\n"
             . '- [' . self::L('full_catalog', $iso) . '](' . $base . '/' . $prefix . 'llms-full-' . $iso . ".txt)\n\n"
             . $this->categoriesSection($idShop, $idLang)
             . $this->brandsSection($idLang)
@@ -783,10 +784,16 @@ final class Generator
         $currency = $this->context->currency->iso_code ?? 'CHF';
         $link = $this->context->link;
         $vat = $get('GEOCONVADO_VAT');
+        $ship = self::shipping($idShop);
         $rows = array_filter([
             'Accepted-Payment' => $get('GEOCONVADO_PAYMENTS'),
             'Shipping-Zone' => $get('GEOCONVADO_SHIP_ZONE'),
-            'Shipping-Cost' => $get('GEOCONVADO_SHIP_COST'),
+            'Shipping-Free-From' => $ship['free_from'] !== '' ? $currency . ' ' . $ship['free_from'] : '',
+            'Shipping-Fee' => $ship['fee'] !== '' ? $currency . ' ' . $ship['fee'] : '',
+            'Shipping-Order-Cutoff' => $ship['cutoff'],
+            'Shipping-Delivery-Time' => $ship['days'],
+            // Freitext bleibt als Hinweis; ohne strukturierte Angaben wie bisher unter «Shipping-Cost».
+            ($ship['structured'] ? 'Shipping-Note' : 'Shipping-Cost') => $get('GEOCONVADO_SHIP_COST'),
             'Currency' => $currency,
             'VAT-Included' => $vat !== '' ? $vat . ' %' : '',
             'Prices' => sprintf(self::L('prices_note', $iso), $currency),
@@ -839,6 +846,7 @@ final class Generator
                 'payment_methods' => array_values(array_filter(array_map('trim', explode(',', $get('GEOCONVADO_PAYMENTS'))))),
                 'shipping_zone' => $get('GEOCONVADO_SHIP_ZONE'),
                 'shipping' => $get('GEOCONVADO_SHIP_COST'),
+                'shipping_details' => self::shippingDetails($idShop, $this->context->currency->iso_code ?? 'CHF'),
             ],
             'actions' => [
                 'buy' => [
@@ -878,7 +886,7 @@ final class Generator
             return '';
         }
         $link = $this->context->link;
-        $out = '## ' . self::L('categories', $iso) . "\n\n";
+        $out = '## ' . self::L('categories', $iso) . "\n\n" . self::L('count_note', $iso) . "\n\n";
         foreach ($rows as $r) {
             if ((int) $r['n'] < 1) {
                 continue;
@@ -945,7 +953,7 @@ final class Generator
         }
         $out = '## ' . self::L('faq', $iso) . "\n\n";
         foreach (array_slice($faqs, 0, 40) as $f) {
-            $out .= '### ' . $this->esc(self::scrub((string) $f['q'])) . "\n\n" . $this->esc($this->clip(self::scrub((string) $f['a']), 800)) . "\n\n";
+            $out .= '### ' . $this->esc(self::scrub((string) $f['q'])) . "\n\n" . $this->esc($this->clip(self::scrub((string) $f['a']), 2000)) . "\n\n";
         }
 
         return $out;
@@ -1123,6 +1131,77 @@ final class Generator
             is_dir((string) $f) ? $this->rmdir((string) $f) : @unlink((string) $f);
         }
         @rmdir($dir);
+    }
+
+    /**
+     * Strukturierte Versandangaben (Gratis-Schwelle, Gebühr, Bestellschluss, Lieferzeit) aus der Konfiguration.
+     *
+     * @return array{free_from: string, fee: string, cutoff: string, days: string, structured: bool}
+     */
+    public static function shipping(int $idShop): array
+    {
+        $v = static fn (string $k): string => trim((string) \Configuration::get($k, null, null, $idShop));
+        $r = ['free_from' => self::money($v('GEOCONVADO_SHIP_FREE_FROM')), 'fee' => self::money($v('GEOCONVADO_SHIP_FEE')),
+            'cutoff' => self::time($v('GEOCONVADO_SHIP_CUTOFF')), 'days' => $v('GEOCONVADO_SHIP_DAYS')];
+
+        return $r + ['structured' => $r['free_from'] !== '' || $r['fee'] !== '' || $r['cutoff'] !== '' || $r['days'] !== ''];
+    }
+
+    /** Veröffentlichte Angaben zu Zahlung, Liefergebiet und MwSt. (leer, solange sie zur Prüfung markiert sind). @return array{payments: string, ship_zone: string, vat: string} */
+    public static function facts(int $idShop): array
+    {
+        return ['payments' => self::fact('GEOCONVADO_PAYMENTS', $idShop), 'ship_zone' => self::fact('GEOCONVADO_SHIP_ZONE', $idShop), 'vat' => self::fact('GEOCONVADO_VAT', $idShop)];
+    }
+
+    /** @return array<string, mixed> */
+    public static function shippingDetails(int $idShop, string $currency): array
+    {
+        $s = self::shipping($idShop);
+
+        return [
+            'currency' => $currency,
+            'free_shipping_from' => $s['free_from'] !== '' ? (float) $s['free_from'] : null,
+            'shipping_fee' => $s['fee'] !== '' ? (float) $s['fee'] : null,
+            'order_cutoff_time' => $s['cutoff'] !== '' ? $s['cutoff'] : null,
+            'delivery_time' => $s['days'] !== '' ? $s['days'] : null,
+            'note' => self::fact('GEOCONVADO_SHIP_COST', $idShop),
+        ];
+    }
+
+    /** «9», «9.5», «9,50», «1\'000.–» ergibt «9.00», «9.50», «1000.00»; alles andere leer. */
+    public static function money(string $v): string
+    {
+        $v = trim(str_replace(["'", '’', ' ', '.–', '.-', '–'], '', $v));
+        if (!preg_match('/^\d{1,6}([.,]\d{1,2})?$/', $v)) {
+            return '';
+        }
+
+        return number_format((float) str_replace(',', '.', $v), 2, '.', '');
+    }
+
+    /** «14», «14:00», «9.30» ergibt «14:00», «14:00», «09:30»; sonst leer. */
+    public static function time(string $v): string
+    {
+        if (!preg_match('/^(\d{1,2})(?:[:.](\d{2}))?$/', trim($v), $m) || (int) $m[1] > 23 || (int) ($m[2] ?? 0) > 59) {
+            return '';
+        }
+
+        return sprintf('%02d:%02d', (int) $m[1], (int) ($m[2] ?? 0));
+    }
+
+    /**
+     * Übernimmt aus dem bisherigen Freitext, was sich sicher erkennen lässt (nur Vorschlag für das Upgrade).
+     *
+     * @return array{free_from: string, fee: string, cutoff: string}
+     */
+    public static function parseLegacyShipping(string $text): array
+    {
+        $num = '(\d[\d\'’]*(?:[.,]\d{1,2})?)';
+        $free = preg_match('/(?:ab|from|d[eè]s|ab einem Bestellwert von)\s*(?:CHF|Fr\.?|EUR|€)\s*' . $num . '/iu', $text, $a) ? self::money($a[1]) : '';
+        $fee = preg_match('/(?:sonst|otherwise|sinon|Versandkosten|Versand|shipping)[^\d]{0,20}(?:CHF|Fr\.?|EUR|€)\s*' . $num . '/iu', $text, $b) ? self::money($b[1]) : '';
+        $cut = preg_match('/(?:bis|before|avant|jusqu.{0,4})\s*(\d{1,2}(?:[:.]\d{2})?)\s*(?:Uhr|h\b|pm|am)/iu', $text, $c) ? self::time($c[1]) : '';
+
+        return ['free_from' => $free, 'fee' => $fee, 'cutoff' => $cut];
     }
 
     /**

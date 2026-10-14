@@ -72,12 +72,11 @@ final class BotDetector
     /** Agenten, die im Auftrag eines Kunden einzelne Seiten abrufen (dürfen die Kauf-Bestätigungsseite öffnen). */
     public const USER_AGENTS = ['ChatGPT-User', 'Claude-User', 'Perplexity-User'];
 
-    /** Typische User-Agents für den Selbsttest. */
+    /** Typische User-Agents für den Selbsttest (nur Anbieter, die wirklich mit eigenem User-Agent besuchen; Google-Extended nie). */
     public const TEST_UA = [
         'openai' => 'Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko); compatible; GPTBot/1.2; +https://openai.com/gptbot',
         'anthropic' => 'Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko; compatible; ClaudeBot/1.0; +claudebot@anthropic.com)',
         'perplexity' => 'Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko; compatible; PerplexityBot/1.0; +https://perplexity.ai/perplexitybot)',
-        'google' => 'Mozilla/5.0 (compatible; Google-Extended)',
     ];
 
     /**

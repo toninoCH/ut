@@ -22,8 +22,11 @@ if (!defined('_PS_VERSION_')) {
 }
 
 use GeoConvado\Service\AioClient;
+use GeoConvado\Service\Attribution;
 use GeoConvado\Service\BotDetector;
+use GeoConvado\Service\FaqPage;
 use GeoConvado\Service\Generator;
+use GeoConvado\Service\McpStats;
 use GeoConvado\Service\MediaProcessor;
 use GeoConvado\Service\ReviewRepository;
 use GeoConvado\Service\RobotsWriter;
@@ -90,6 +93,10 @@ class ConfigController extends PrestaShopAdminController
             \Configuration::updateValue('GEOCONVADO_REVIEWS', $request->request->get('reviews') ? 1 : 0);
             \Configuration::updateValue('GEOCONVADO_FAQS', $request->request->get('faqs') ? 1 : 0);
             \Configuration::updateValue('GEOCONVADO_ROBOTS', $request->request->get('robots') ? 1 : 0);
+            $faqCms = (int) $request->request->get('faq_cms', 0);
+            \Configuration::updateValue(FaqPage::CFG_CMS, in_array($faqCms, array_map('intval', array_column(\CMS::getCMSPages((int) $legacyContext->getContext()->language->id, null, true, (int) $legacyContext->getContext()->shop->id) ?: [], 'id_cms')), true) ? $faqCms : 0);
+            $signal = RobotsWriter::normalizeSignal((string) $request->request->get('content_signal', ''));
+            \Configuration::updateValue(RobotsWriter::CFG_SIGNAL, array_key_exists($signal, RobotsWriter::SIGNAL_PRESETS) ? $signal : RobotsWriter::SIGNAL_DEFAULT);
             // Sofort schreiben, nicht erst beim nächsten Generierungslauf (sonst fehlt der Block bis zum Cron).
             $robotsWriter = new RobotsWriter();
             if ($request->request->get('robots')) {
@@ -103,6 +110,22 @@ class ConfigController extends PrestaShopAdminController
                 // Tabulatoren und Zeilenumbrüche (z. B. aus eingefügten Tabellen) werden zu einem Leerzeichen.
                 \Configuration::updateValue($k, trim((string) preg_replace('/\s+/u', ' ', strip_tags((string) $request->request->get($f, '')))));
             }
+            \Configuration::updateValue('GEOCONVADO_SHIP_FREE_FROM', Generator::money((string) $request->request->get('ship_free_from', '')));
+            \Configuration::updateValue('GEOCONVADO_SHIP_FEE', Generator::money((string) $request->request->get('ship_fee', '')));
+            \Configuration::updateValue('GEOCONVADO_SHIP_CUTOFF', Generator::time((string) $request->request->get('ship_cutoff', '')));
+            \Configuration::updateValue('GEOCONVADO_SHIP_DAYS', trim(strip_tags((string) $request->request->get('ship_days', ''))));
+            // Agenten-Zugang: Grenzwerte, erlaubte Browser-Herkünfte, AIO-Adresse (ungültige Angaben werden verworfen).
+            \Configuration::updateValue('GEOCONVADO_MCP_RPM', max(10, min(600, (int) $request->request->get('mcp_rpm', 60))));
+            \Configuration::updateValue('GEOCONVADO_MCP_CACHE', max(0, min(3600, (int) $request->request->get('mcp_cache', 120))));
+            $origins = [];
+            foreach (preg_split('/[\s,]+/', (string) $request->request->get('mcp_origins', '')) ?: [] as $o) {
+                if (preg_match('#^https?://[a-z0-9.\-]+(:\d{1,5})?$#i', rtrim($o, '/'))) {
+                    $origins[] = strtolower(rtrim($o, '/'));
+                }
+            }
+            \Configuration::updateValue('GEOCONVADO_MCP_ORIGINS', implode("\n", array_slice(array_unique($origins), 0, 20)));
+            $aio = trim((string) $request->request->get('aio_url', ''));
+            \Configuration::updateValue(AioClient::CFG_URL, $aio !== '' && AioClient::base($aio) === rtrim($aio, '/') ? rtrim($aio, '/') : '');
             \Configuration::updateValue('GEOCONVADO_FACTS_REVIEW', 0); // Händler hat die Einkaufsinfos gesehen und bestätigt
             \Configuration::updateValue('GEOCONVADO_W_SUMMARY', $request->request->get('w_summary') ? 1 : 0);
             \Configuration::updateValue('GEOCONVADO_UPSELL', $request->request->get('upsell') ? 1 : 0);
@@ -202,7 +225,8 @@ class ConfigController extends PrestaShopAdminController
         $steps = [
             ['label' => 'Verbindung', 'ok' => (string) \Configuration::get('GEOCONVADO_AIO_KEY') !== ''],
             ['label' => 'Inhalte', 'ok' => array_filter($brandValues) !== []],
-            ['label' => 'Einkaufen', 'ok' => !$factsReview && (string) \Configuration::get('GEOCONVADO_PAYMENTS') !== '' && (string) \Configuration::get('GEOCONVADO_SHIP_COST') !== ''],
+            ['label' => 'Einkaufen', 'ok' => !$factsReview && (string) \Configuration::get('GEOCONVADO_PAYMENTS') !== '' && ((string) \Configuration::get('GEOCONVADO_SHIP_COST') !== '' || Generator::shipping((int) $context->shop->id)['structured'])],
+            ['label' => 'robots.txt', 'ok' => (new RobotsWriter())->status()['ok'] || !(int) \Configuration::get('GEOCONVADO_ROBOTS')],
             ['label' => 'Cron', 'ok' => $lastCron !== '' && strtotime($lastCron) > time() - 3600],
         ];
 
@@ -212,15 +236,29 @@ class ConfigController extends PrestaShopAdminController
             'reviews' => (bool) \Configuration::get('GEOCONVADO_REVIEWS'),
             'faqs' => (bool) \Configuration::get('GEOCONVADO_FAQS'),
             'robots' => (bool) \Configuration::get('GEOCONVADO_ROBOTS'),
+            'faq_cms' => (int) \Configuration::get(FaqPage::CFG_CMS),
+            'content_signal' => RobotsWriter::normalizeSignal((string) \Configuration::get(RobotsWriter::CFG_SIGNAL)),
+            'signal_presets' => RobotsWriter::SIGNAL_PRESETS,
             'payments' => (string) \Configuration::get('GEOCONVADO_PAYMENTS'),
             'ship_zone' => (string) \Configuration::get('GEOCONVADO_SHIP_ZONE'),
             'ship_cost' => (string) \Configuration::get('GEOCONVADO_SHIP_COST'),
+            'ship_free_from' => (string) \Configuration::get('GEOCONVADO_SHIP_FREE_FROM'),
+            'ship_fee' => (string) \Configuration::get('GEOCONVADO_SHIP_FEE'),
+            'ship_cutoff' => (string) \Configuration::get('GEOCONVADO_SHIP_CUTOFF'),
+            'ship_days' => (string) \Configuration::get('GEOCONVADO_SHIP_DAYS'),
             'vat' => (string) \Configuration::get('GEOCONVADO_VAT'),
             'w_summary' => (bool) \Configuration::get('GEOCONVADO_W_SUMMARY'),
             'upsell' => (bool) \Configuration::get('GEOCONVADO_UPSELL'),
             'w_reviews' => (bool) \Configuration::get('GEOCONVADO_W_REVIEWS'),
             'track_llms' => (bool) \Configuration::get('GEOCONVADO_TRACK_LLMS'),
             'dash' => $dash,
+            'attr' => Attribution::summary($idShop),
+            'mcp_stats' => McpStats::summary($idShop),
+            'mcp_rpm' => (int) (\Configuration::get('GEOCONVADO_MCP_RPM') ?: 60),
+            'mcp_cache' => \Configuration::get('GEOCONVADO_MCP_CACHE') === false ? 120 : (int) \Configuration::get('GEOCONVADO_MCP_CACHE'),
+            'mcp_origins' => (string) \Configuration::get('GEOCONVADO_MCP_ORIGINS'),
+            'aio_url' => (string) \Configuration::get(AioClient::CFG_URL),
+            'aio_default' => AioClient::DEFAULT_BASE,
             'steps' => $steps,
             'steps_done' => count(array_filter(array_column($steps, 'ok'))),
             'last_cron' => $lastCron,
@@ -251,6 +289,7 @@ class ConfigController extends PrestaShopAdminController
             'stats' => $stats,
             'files' => $this->files($base),
             'providers' => $providers,
+            'robots_status' => (new RobotsWriter())->status(),
             'robots_preview' => (new RobotsWriter())->block($base . '/'),
             'htaccess' => "# GEO.Convado: llms-Dateien über das Modul ausliefern (nur nötig, wenn Ihr Server das nicht automatisch tut)\nRewriteEngine On\nRewriteCond %{REQUEST_FILENAME} !-f\nRewriteRule ^(llms[a-z0-9/\\-]*\\.txt|llms\\.json)$ index.php [L,QSA]",
             'nginx' => "location ~ ^/llms[a-z0-9/\\-]*\\.(txt|json)$ {\n    try_files \$uri /index.php?\$args;\n}",
@@ -365,6 +404,34 @@ class ConfigController extends PrestaShopAdminController
         $rows[] = ['label' => 'robots.txt enthält GEO.Convado-Block', 'ok' => str_contains($robots['body'], '# GEO.Convado start'), 'detail' => $robots['code'] === 200 ? 'gefunden' : $robots['detail']];
         $cloudflare = $browser['cf'] || $robots['cf'];
 
+        // Agenten-Zugang (MCP und Entdeckungsdokumente): Antwort und Content-Type müssen stimmen.
+        if ((int) \Configuration::get('GEOCONVADO_AGENT')) {
+            $ua = 'Mozilla/5.0';
+            $hint = ' · Webserver blockiert evtl. «.well-known» oder leitet auf die Startseite um';
+            foreach ([['/.well-known/api-catalog', 'application/linkset+json', 'linkset'], ['/.well-known/mcp/server-card.json', 'application/json', 'serverInfo'],
+                ['/.well-known/agent-skills/index.json', 'application/json', 'skills'], ['/openapi.json', 'application/json', 'openapi']] as [$path, $type, $needle]) {
+                $r = $this->probe($base . $path, $ua);
+                $ok = $r['code'] === 200 && str_contains($r['type'], $type) && str_contains($r['body'], $needle);
+                $rows[] = ['label' => 'Agenten-Dokument ' . $path, 'ok' => $ok, 'detail' => $ok ? 'ok' : $r['detail'] . ($r['code'] === 200 ? ' · Content-Type ' . $r['type'] : $hint)];
+            }
+            $mcp = $this->probe($base . '/mcp', $ua, '{"jsonrpc":"2.0","id":1,"method":"tools/list"}');
+            $ok = $mcp['code'] === 200 && str_contains($mcp['body'], 'search_products');
+            $rows[] = ['label' => 'MCP-Endpunkt /mcp', 'ok' => $ok, 'detail' => $ok ? 'Werkzeuge gefunden' : $mcp['detail']];
+        }
+
+        // Was die ausgelieferte robots.txt je Anbieter erlaubt (Google-Extended und Applebot-Extended kommen nie als Besucher, nur die Datei zählt).
+        if ($robots['code'] === 200) {
+            $allowedNow = BotDetector::allowedProviders();
+            foreach (BotDetector::PROVIDERS as $p => [$label, $agents]) {
+                $blocked = array_values(array_filter($agents, static fn (string $a): bool => !RobotsWriter::canFetch($robots['body'], $a)));
+                $wanted = in_array($p, $allowedNow, true);
+                $rows[] = [
+                    'label' => $label . ' – robots.txt (ausgeliefert)',
+                    'ok' => $wanted ? !$blocked : true,
+                    'detail' => $blocked ? 'gesperrt: ' . implode(', ', $blocked) . ($wanted ? ' (im Modul aber freigegeben)' : ' (bewusst)') : 'erlaubt',
+                ];
+            }
+        }
         foreach (BotDetector::TEST_UA as $p => $ua) {
             $label = BotDetector::PROVIDERS[$p][0];
             foreach (['llms.txt' => $base . '/llms.txt', 'Produktseite' => $productUrl] as $what => $url) {
@@ -387,12 +454,12 @@ class ConfigController extends PrestaShopAdminController
         return new JsonResponse(['success' => true, 'data' => ['rows' => $rows, 'cloudflare' => $cloudflare]]);
     }
 
-    /** @return array{code: int, cf: bool, challenge: bool, mitigated: string, body: string, detail: string} */
-    private function probe(string $url, string $ua): array
+    /** @return array{code: int, type: string, cf: bool, challenge: bool, mitigated: string, body: string, detail: string} */
+    private function probe(string $url, string $ua, ?string $post = null): array
     {
         $headers = [];
         $ch = curl_init($url);
-        curl_setopt_array($ch, [
+        curl_setopt_array($ch, ($post !== null ? [CURLOPT_POST => true, CURLOPT_POSTFIELDS => $post, CURLOPT_HTTPHEADER => ['Content-Type: application/json', 'Accept: application/json']] : []) + [
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_FOLLOWLOCATION => true,
             CURLOPT_MAXREDIRS => 3,
@@ -417,6 +484,7 @@ class ConfigController extends PrestaShopAdminController
 
         return [
             'code' => $code,
+            'type' => strtolower((string) ($headers['content-type'] ?? '')),
             'cf' => $cf,
             'challenge' => $challenge,
             'mitigated' => (string) ($headers['cf-mitigated'] ?? ''),
