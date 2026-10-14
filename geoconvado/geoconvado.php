@@ -108,7 +108,7 @@ class GeoConvado extends Module
     {
         $this->name = 'geoconvado';
         $this->tab = 'seo';
-        $this->version = '1.13.1';
+        $this->version = '1.13.2';
         $this->author = 'Convado AG';
         $this->need_instance = 0;
         $this->bootstrap = true;
@@ -374,6 +374,8 @@ class GeoConvado extends Module
     /** Leichtgewichtiges Bot-Tracking (nur bekannte KI-Crawler, keine Kunden). */
     public function hookActionFrontControllerSetMedia(): void
     {
+        // Stylesheet im dafür vorgesehenen Hook anmelden (gleiche ID wie in displayHeader, daher nie doppelt).
+        $this->addFrontCss();
         $bot = BotDetector::detect((string) ($_SERVER['HTTP_USER_AGENT'] ?? ''));
         if ($bot === null) {
             $this->trackAiReferral();
