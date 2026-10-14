@@ -397,13 +397,32 @@ class ConfigController extends PrestaShopAdminController
         $idProduct = (int) \Db::getInstance()->getValue('SELECT id_product FROM `' . _DB_PREFIX_ . 'product_shop` WHERE active = 1 AND id_shop = ' . (int) $context->shop->id . ' ORDER BY id_product LIMIT 1');
         $productUrl = $idProduct ? $context->link->getProductLink($idProduct) : $base . '/';
         $rows = [];
+        // Zuerst über Cloudflare abrufen; blockiert Cloudflare diesen Test (Anfrage vom eigenen Server), direkt am Server wiederholen.
+        $ips = array_values(array_unique(array_filter([(string) ($_SERVER['SERVER_ADDR'] ?? ''), '127.0.0.1'])));
+        $fetch = function (string $url, string $ua, ?string $post = null) use ($ips): array {
+            $r = $this->probe($url, $ua, $post);
+            $blocked = $r['cf'] && (in_array($r['code'], [401, 403, 429, 503], true) || $r['challenge']);
+            if ($blocked) {
+                foreach ($ips as $ip) {
+                    $d = $this->probe($url, $ua, $post, $ip);
+                    if ($d['code'] > 0 && !$d['cf']) {
+                        return ['r' => $d, 'blocked' => true];
+                    }
+                }
+            }
 
-        $browser = $this->probe($base . '/llms.txt', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36');
-        $rows[] = ['label' => 'llms.txt erreichbar (normaler Besucher)', 'ok' => $browser['code'] === 200, 'detail' => $browser['detail']];
-        $robots = $this->probe($base . '/robots.txt', 'Mozilla/5.0');
-        $rows[] = ['label' => 'robots.txt enthält GEO.Convado-Block', 'ok' => str_contains($robots['body'], '# GEO.Convado start'), 'detail' => $robots['code'] === 200 ? 'gefunden' : $robots['detail']];
-        $cloudflare = $browser['cf'] || $robots['cf'];
+            return ['r' => $r, 'blocked' => false];
+        };
+        $note = ' (direkt am Server geprüft; Cloudflare blockiert diesen Test vom eigenen Server)';
 
+        $fb = $fetch($base . '/llms.txt', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36');
+        $browser = $fb['r'];
+        $rows[] = ['label' => 'llms.txt erreichbar (normaler Besucher)', 'ok' => $browser['code'] === 200, 'warn' => $browser['code'] === 200 && $fb['blocked'], 'detail' => $browser['detail'] . ($fb['blocked'] ? $note : '')];
+        $fr = $fetch($base . '/robots.txt', 'Mozilla/5.0');
+        $robots = $fr['r'];
+        $hasBlock = str_contains($robots['body'], '# GEO.Convado start');
+        $rows[] = ['label' => 'robots.txt enthält GEO.Convado-Block', 'ok' => $hasBlock, 'warn' => $hasBlock && $fr['blocked'], 'detail' => $robots['code'] === 200 ? ($hasBlock ? 'gefunden' . ($fr['blocked'] ? $note : '') : 'nicht gefunden') : $robots['detail']];
+        $cloudflare = $browser['cf'] || $robots['cf'] || $fb['blocked'] || $fr['blocked'];
         // Agenten-Zugang (MCP und Entdeckungsdokumente): Antwort und Content-Type müssen stimmen.
         if ((int) \Configuration::get('GEOCONVADO_AGENT')) {
             $apcu = function_exists('apcu_enabled') && apcu_enabled();
@@ -412,13 +431,17 @@ class ConfigController extends PrestaShopAdminController
             $hint = ' · Webserver blockiert evtl. «.well-known» oder leitet auf die Startseite um';
             foreach ([['/.well-known/api-catalog', 'application/linkset+json', 'linkset'], ['/.well-known/mcp/server-card.json', 'application/json', 'serverInfo'],
                 ['/.well-known/agent-skills/index.json', 'application/json', 'skills'], ['/openapi.json', 'application/json', 'openapi']] as [$path, $type, $needle]) {
-                $r = $this->probe($base . $path, $ua);
+                $fd = $fetch($base . $path, $ua);
+                $r = $fd['r'];
                 $ok = $r['code'] === 200 && str_contains($r['type'], $type) && str_contains($r['body'], $needle);
-                $rows[] = ['label' => 'Agenten-Dokument ' . $path, 'ok' => $ok, 'detail' => $ok ? 'ok' : $r['detail'] . ($r['code'] === 200 ? ' · Content-Type ' . $r['type'] : $hint)];
+                $rows[] = ['label' => 'Agenten-Dokument ' . $path, 'ok' => $ok, 'warn' => $ok && $fd['blocked'], 'detail' => $ok ? ($fd['blocked'] ? 'ok' . $note : 'ok') : $r['detail'] . ($r['code'] === 200 ? ' · Content-Type ' . $r['type'] : $hint)];
+                $cloudflare = $cloudflare || $fd['blocked'];
             }
-            $mcp = $this->probe($base . '/mcp', $ua, '{"jsonrpc":"2.0","id":1,"method":"tools/list"}');
+            $fm = $fetch($base . '/mcp', $ua, '{"jsonrpc":"2.0","id":1,"method":"tools/list"}');
+            $mcp = $fm['r'];
             $ok = $mcp['code'] === 200 && str_contains($mcp['body'], 'search_products');
-            $rows[] = ['label' => 'MCP-Endpunkt /mcp', 'ok' => $ok, 'detail' => $ok ? 'Werkzeuge gefunden' : $mcp['detail']];
+            $rows[] = ['label' => 'MCP-Endpunkt /mcp', 'ok' => $ok, 'warn' => $ok && $fm['blocked'], 'detail' => $ok ? 'Werkzeuge gefunden' . ($fm['blocked'] ? $note : '') : $mcp['detail']];
+            $cloudflare = $cloudflare || $fm['blocked'];
         }
 
         // Was die ausgelieferte robots.txt je Anbieter erlaubt (Google-Extended und Applebot-Extended kommen nie als Besucher, nur die Datei zählt).
@@ -440,11 +463,13 @@ class ConfigController extends PrestaShopAdminController
                 $r = $this->probe($url, $ua);
                 $cloudflare = $cloudflare || $r['cf'];
                 $blocked = in_array($r['code'], [401, 403, 429, 503], true) || $r['challenge'];
+                $unclear = $blocked && $r['cf'];
                 $rows[] = [
                     'label' => $label . ' – ' . $what,
-                    'ok' => $r['code'] === 200 && !$r['challenge'],
-                    'detail' => $blocked && $r['cf']
-                        ? 'Von Cloudflare blockiert (' . $r['code'] . ($r['mitigated'] ? ', ' . $r['mitigated'] : '') . ')'
+                    'ok' => $unclear || ($r['code'] === 200 && !$r['challenge']),
+                    'warn' => $unclear,
+                    'detail' => $unclear
+                        ? 'Unklar: Cloudflare blockiert diesen Test vom eigenen Server (' . $r['code'] . ($r['mitigated'] ? ', ' . $r['mitigated'] : '') . '). Echte, verifizierte Bots werden anders behandelt, siehe Reiter «Analyse» und Cloudflare → Security → Events.'
                         : $r['detail'],
                 ];
             }
@@ -457,9 +482,15 @@ class ConfigController extends PrestaShopAdminController
     }
 
     /** @return array{code: int, type: string, cf: bool, challenge: bool, mitigated: string, body: string, detail: string} */
-    private function probe(string $url, string $ua, ?string $post = null): array
+    private function probe(string $url, string $ua, ?string $post = null, ?string $ip = null): array
     {
         $headers = [];
+        $resolve = [];
+        if ($ip !== null) {
+            $parts = parse_url($url) ?: [];
+            $port = (int) ($parts['port'] ?? (($parts['scheme'] ?? 'https') === 'http' ? 80 : 443));
+            $resolve = [CURLOPT_RESOLVE => [(string) ($parts['host'] ?? '') . ':' . $port . ':' . $ip]];
+        }
         $ch = curl_init($url);
         curl_setopt_array($ch, ($post !== null ? [CURLOPT_POST => true, CURLOPT_POSTFIELDS => $post, CURLOPT_HTTPHEADER => ['Content-Type: application/json', 'Accept: application/json']] : []) + [
             CURLOPT_RETURNTRANSFER => true,
@@ -468,6 +499,7 @@ class ConfigController extends PrestaShopAdminController
             CURLOPT_TIMEOUT => 10,
             CURLOPT_CONNECTTIMEOUT => 5,
             CURLOPT_USERAGENT => $ua,
+        ] + $resolve + [
             CURLOPT_HEADERFUNCTION => static function ($c, string $h) use (&$headers): int {
                 $parts = explode(':', $h, 2);
                 if (count($parts) === 2) {

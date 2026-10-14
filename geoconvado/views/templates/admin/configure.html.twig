@@ -466,13 +466,13 @@
       if (!j.success) { out.textContent = j.error || 'Fehler'; return; }
       var t = document.createElement('table'); t.className = 'gc-table gc-card';
       j.data.rows.forEach(function (r) {
-        var tr = t.insertRow(); tr.insertCell().textContent = r.ok ? '✓' : '✕'; tr.cells[0].className = r.ok ? 'gc-ok' : 'gc-err';
+        var tr = t.insertRow(); tr.insertCell().textContent = r.warn ? '⚠' : (r.ok ? '✓' : '✕'); tr.cells[0].className = r.warn ? 'gc-warn' : (r.ok ? 'gc-ok' : 'gc-err');
         tr.insertCell().textContent = r.label; tr.insertCell().textContent = r.detail;
       });
       out.innerHTML = '';
       if (j.data.cloudflare) {
-        var n = document.createElement('div'); n.className = 'gc-alert ' + (j.data.rows.every(function (r) { return r.ok; }) ? 'ok' : 'err');
-        n.textContent = 'Cloudflare erkannt. Blockierte Zeilen beheben Sie im Reiter «KI-Zugriff». Hinweis: Der Test kommt von Ihrem Server, nicht von den echten KI-Servern – Cloudflare kann echte, verifizierte Bots anders behandeln.';
+        var n = document.createElement('div'); n.className = 'gc-alert ' + (j.data.rows.some(function (r) { return !r.ok; }) ? 'err' : (j.data.rows.some(function (r) { return r.warn; }) ? 'warn' : 'ok'));
+        n.textContent = 'Cloudflare erkannt. Der Test läuft von Ihrem Server aus; Cloudflare blockiert solche Anfragen oft, echte verifizierte KI-Bots werden anders behandelt. ⚠ = Das Modul antwortet direkt am Server korrekt, über Cloudflare ist der Test nicht aussagekräftig. Ob echte Bots durchkommen, zeigen der Reiter «Analyse» (KI-Besuche) und Cloudflare → Security → Events. ✕ = echter Fehler, zu beheben im Reiter «KI-Zugriff».';
         out.appendChild(n);
       }
       out.appendChild(t);
