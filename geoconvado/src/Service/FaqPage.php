@@ -28,11 +28,16 @@ if (!defined('_PS_VERSION_') && !defined('GEOCONVADO_TEST')) {
 final class FaqPage
 {
     public const CFG_CMS = 'GEOCONVADO_FAQ_CMS';
+    public const CFG_LAST = 'GEOCONVADO_FAQ_LAST';
+    public const CFG_PAUSE = 'GEOCONVADO_FAQ_PAUSE';
     public const TOKEN = '{geoconvado_faq}';
     private const TTL = 600;
     private const RETRY = 300;
     private const MAX_AGE = 2592000;
     private const MAX_BYTES = 2000000;
+
+    /** Grund des letzten fehlgeschlagenen Abrufs (leer = Abruf gelungen). */
+    public string $lastError = '';
 
     public function __construct(private readonly string $endpoint = '')
     {
@@ -60,15 +65,18 @@ final class FaqPage
 
         $age = $row ? time() - (int) strtotime((string) $row['fetched_at']) : PHP_INT_MAX;
         $fresh = $row && $age < self::TTL && (string) $row['canonical'] === $canonical;
-        $paused = $row && (int) strtotime((string) $row['retry_at']) > time();
+        $paused = ($row && (int) strtotime((string) $row['retry_at']) > time()) || (int) \Configuration::get(self::CFG_PAUSE) > time();
         if (!$fresh && !$paused) {
             $live = $this->fetchRemote($key, $iso, $canonical);
+            \Configuration::updateValue(self::CFG_LAST, date('Y-m-d H:i:s') . ' | ' . ($live !== null ? 'OK' : $this->lastError));
             if ($live !== null) {
+                \Configuration::updateValue(self::CFG_PAUSE, 0);
                 $db->execute('REPLACE INTO `' . $t . '` (id_shop, iso, payload, canonical, fetched_at, retry_at) VALUES (' . $idShop . ", '" . pSQL($iso) . "', '"
                     . pSQL((string) json_encode($live, JSON_UNESCAPED_UNICODE), true) . "', '" . pSQL($canonical) . "', '" . date('Y-m-d H:i:s') . "', '1970-01-02 00:00:00')");
 
                 return $live;
             }
+            \Configuration::updateValue(self::CFG_PAUSE, time() + self::RETRY);
             if ($row) {
                 $db->execute('UPDATE `' . $t . "` SET retry_at = '" . date('Y-m-d H:i:s', time() + self::RETRY) . "' WHERE id_shop = " . $idShop . " AND iso = '" . pSQL($iso) . "'");
             }
@@ -94,9 +102,13 @@ final class FaqPage
         ]);
         $body = curl_exec($ch);
         $status = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $curlError = curl_error($ch);
         unset($ch);
 
-        return $status === 200 && is_string($body) ? self::parse($body, $iso) : null;
+        $page = $status === 200 && is_string($body) ? self::parse($body, $iso) : null;
+        $this->lastError = $page !== null ? '' : 'HTTP ' . $status . ($curlError !== '' ? ' ' . $curlError : '') . ': ' . ($status === 200 ? 'Antwort ohne Fragment in Sprache ' . $iso : mb_substr(trim(strip_tags((string) $body)), 0, 120));
+
+        return $page;
     }
 
     /** Antwort prüfen: nur Fragmente in der gewünschten Sprache mit Inhalt werden übernommen. */

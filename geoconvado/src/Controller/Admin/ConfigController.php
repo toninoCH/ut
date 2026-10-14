@@ -237,6 +237,7 @@ class ConfigController extends PrestaShopAdminController
             'faqs' => (bool) \Configuration::get('GEOCONVADO_FAQS'),
             'robots' => (bool) \Configuration::get('GEOCONVADO_ROBOTS'),
             'faq_cms' => (int) \Configuration::get(FaqPage::CFG_CMS),
+            'faq_last' => (string) \Configuration::get(FaqPage::CFG_LAST),
             'content_signal' => RobotsWriter::normalizeSignal((string) \Configuration::get(RobotsWriter::CFG_SIGNAL)),
             'signal_presets' => RobotsWriter::SIGNAL_PRESETS,
             'payments' => (string) \Configuration::get('GEOCONVADO_PAYMENTS'),

@@ -279,6 +279,7 @@
         </select>
         <small class="gc-muted">Design, Texte und FAQPage-Markup kommen in der Sprache des Besuchers aus dem AIO, alle 10 Minuten aktualisiert. Fehlt die Sprache oder ist der AIO nicht erreichbar, bleibt der bisherige Inhalt. Steht <code>{geoconvado_faq}</code> im CMS-Text, ersetzt das Modul nur diese Marke.</small>
       </label>
+      {% if faq_cms and faq_last %}<p class="gc-muted">Letzter Abruf beim AIO: <code>{{ faq_last }}</code></p>{% endif %}
     </section>
     <section class="gc-card">
       <h2 class="gc-h2">Marken</h2>
