@@ -98,7 +98,7 @@ class GeoConvado extends Module
     {
         $this->name = 'geoconvado';
         $this->tab = 'seo';
-        $this->version = '1.10.5';
+        $this->version = '1.10.6';
         $this->author = 'Convado AG';
         $this->need_instance = 0;
         $this->bootstrap = true;
@@ -309,7 +309,7 @@ class GeoConvado extends Module
             return;
         }
         $c = $this->context->controller;
-        $idProduct = ($c->php_self ?? '') === 'product' ? (int) Tools::getValue('id_product') : 0;
+        $idProduct = $c->php_self === 'product' ? (int) Tools::getValue('id_product') : 0;
         Tracker::log((int) $this->context->shop->id, $bot, 'page', (string) ($_SERVER['REQUEST_URI'] ?? '/'), $idProduct);
     }
 

@@ -1,0 +1,13 @@
+name: GEO.Convado Vor-Release-Prüfung
+on:
+  push:
+  pull_request:
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+      - run: php tools/check.php geoconvado
